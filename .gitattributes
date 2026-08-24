@@ -1,0 +1,5 @@
+# 改行コードをそろえる（人によって差分が出るのを防ぐ）
+* text=auto
+
+# .bat は Windows 用なので CRLF のままにする
+*.bat text eol=crlf

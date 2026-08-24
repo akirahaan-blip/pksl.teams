@@ -1,0 +1,2242 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ポケスリ 今週の料理ナビ</title>
+
+<style>/* 文字はすべて M+1p Heavy(800)。小さい文字だけ個別に Bold(700) に落としている。
+   html/body にだけ太さを置き、あとは親から受け継がせる（下の要素は、
+   見出しなどがブラウザ既定で勝手に太くなるのを打ち消して受け継ぎに戻す）。 */
+html, body { font-weight: 800; }
+h1, h2, h3, h4, h5, h6, b, strong, th, summary,
+button, input, select, textarea, option, optgroup, legend { font-weight: inherit; }
+
+
+/* ============ 配色（ダークが基本、端末の設定で明るくもなる） ============ */
+:root{
+  --bg:#1C0E15; --bg2:#27131C; --surface:#2C1621; --surface2:#3A1E2B;
+  --line:#57303F; --line-soft:#452837;
+  --text:#FCEAF1; --dim:#D6A9BA; --faint:#A87C8D;
+  --accent:#FF8FB1; --accent-ink:#3A0A1B; --accent-soft:#4B2130;
+  --warn:#F2A85F; --bad:#F0757F; --good:#8FD6A8;
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#FFF5F8; --bg2:#FFE9F0; --surface:#FFFFFF; --surface2:#FFF1F5;
+    --line:#F3CFDC; --line-soft:#F9E3EB;
+    --text:#3B1B27; --dim:#7C4A5D; --faint:#9C6B7D;
+    --accent:#D6336C; --accent-ink:#FFFFFF; --accent-soft:#FFE2EC;
+    --warn:#A9611A; --bad:#C2385A; --good:#2F7856;
+    --shadow:0 10px 28px rgba(120,40,70,.14);
+  }
+}
+*{box-sizing:border-box}
+/* すべて M PLUS 1p の Bold（700）でそろえる */
+input,select,button,textarea,table,
+h1,h2,h3,h4,h5,h6,b,strong,th,td,summary,option{font-family:inherit; font-weight:inherit}
+body{
+  margin:0; padding:0 0 60px;
+  background:linear-gradient(180deg,var(--bg),var(--bg2) 60%,var(--bg));
+  color:var(--text);
+  font-family:"M PLUS 1p","Hiragino Kaku Gothic ProN","Yu Gothic UI",
+              "Meiryo",system-ui,sans-serif;
+  font-weight:800;
+  line-height:1.75; font-size:15px;
+}
+.wrap{max-width:820px; margin:0 auto; padding:0 14px}
+header{padding:26px 0 8px}
+h1{font-size:22px; margin:0 0 4px; letter-spacing:.02em}
+h1 .em{font-size:24px; margin-right:6px}
+.lead{color:var(--dim); font-size:13px; margin:0;font-weight:700}
+
+section{
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:14px; padding:16px; margin:14px 0; box-shadow:var(--shadow);
+}
+h2{font-size:15px; margin:0 0 12px; display:flex; align-items:center; gap:8px}
+h2 .num{
+  background:var(--accent); color:var(--accent-ink); font-size:12px;
+  width:22px; height:22px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;font-weight:700
+}
+.hint{color:var(--faint); font-size:12px; margin:6px 0 0; line-height:1.85;font-weight:700}
+
+label{display:block; font-size:13px; color:var(--dim); margin:0 0 4px;font-weight:700}
+select,input[type=text],input[type=number]{
+  font:inherit; font-size:14px; color:var(--text);
+  background:var(--surface2); border:1px solid var(--line);
+  border-radius:8px; padding:7px 9px; width:100%;
+}
+input[type=number]{width:100%}
+select:focus,input:focus{outline:2px solid var(--accent); outline-offset:1px}
+
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end}
+.row > div{flex:1 1 150px; min-width:0}
+
+/* 料理カテゴリのボタン */
+.cats{display:flex; gap:8px; flex-wrap:wrap}
+.cat{
+  flex:1 1 150px; cursor:pointer; text-align:center;
+  background:var(--surface2); border:1px solid var(--line);
+  border-radius:10px; padding:10px 8px; font-size:14px;
+  transition:.12s;
+}
+.cat:hover{border-color:var(--accent)}
+.cat.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:inherit}
+.cat small{display:block; font-size:11px; opacity:.75; font-weight:700}
+
+/* きのみ表示 */
+.berries{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+.berry{
+  background:var(--accent-soft); border:1px solid var(--line);
+  border-radius:999px; padding:3px 11px; font-size:12.5px;font-weight:700
+}
+
+/* 手持ちの一覧。多いときは一覧の中だけがスクロールする */
+#mons{max-height:460px; overflow-y:auto; overscroll-behavior:contain;
+  border:1px solid var(--line-soft); border-radius:10px; padding:6px 8px;
+  background:color-mix(in srgb, var(--surface2) 40%, transparent);}
+.chk{display:flex; align-items:center; gap:5px; font-size:13px; color:var(--text);
+  cursor:pointer; padding:8px 0; margin:0;font-weight:700}
+.chk input{accent-color:var(--accent); width:16px; height:16px; cursor:pointer}
+.mon .nm{font-size:14px; min-width:0; overflow:hidden; white-space:nowrap;
+  text-overflow:ellipsis; flex:1 1 auto}
+.mon .nm .sub{color:var(--faint); font-size:11.5px; margin-left:6px;font-weight:700}
+.mon .meta{color:var(--faint); font-size:12px; flex:0 0 auto; white-space:nowrap;font-weight:700}
+.mon .exp{
+  background:none; border:1px solid var(--line); color:var(--dim);
+  border-radius:7px; padding:2px 9px; font:inherit; font-size:12px; cursor:pointer;
+  flex:0 0 auto;font-weight:700
+}
+.mon .exp:hover{color:var(--accent); border-color:var(--accent)}
+.mon.open{border-color:var(--accent)}
+.mon .body{margin-top:10px; padding-top:10px; border-top:1px solid var(--line-soft)}
+.mon:not(.open){padding:7px 10px; margin:6px 0}
+.mon:not(.open) .head{min-height:26px}
+
+/* ポケモンの行 */
+.mon{
+  background:var(--surface2); border:1px solid var(--line-soft);
+  border-radius:10px; padding:11px; margin:9px 0;
+}
+.mon .head{display:flex; gap:8px; align-items:center; line-height:1.35}
+.mon .head .no{color:var(--faint); font-size:12px; min-width:0; overflow:hidden;
+  white-space:nowrap; text-overflow:ellipsis;font-weight:700}
+.mon .use{
+  display:flex; align-items:center; gap:4px; margin:0; flex:0 0 auto;
+  font-size:12.5px; color:var(--text); cursor:pointer;font-weight:700
+}
+.mon .use input{accent-color:var(--accent); width:16px; height:16px; cursor:pointer}
+.mon.off{opacity:.45}
+.mon.off .use{color:var(--faint)}
+.lvgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:8px}
+.lvgrid label{font-size:12px; margin:0 0 2px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;font-weight:700}
+.lvgrid input{padding:5px 8px; font-size:13px;font-weight:700}
+#stockGrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px}
+#stockGrid label{font-size:12px; margin:0 0 2px;font-weight:700}
+#stockGrid input{padding:5px 8px; font-size:13px;font-weight:700}
+#teamCount{font-size:13px; color:var(--dim); margin:0 0 6px;font-weight:700}
+#teamCount b{color:var(--accent)}
+#teamCount.over b{color:var(--warn)}
+.mon .del{
+  background:none; border:1px solid var(--line);
+  color:var(--dim); border-radius:7px; padding:2px 9px; font:inherit;
+  font-size:12px; cursor:pointer;font-weight:700
+}
+.mon .del:hover{color:var(--bad); border-color:var(--bad)}
+.mon .made{font-size:12px; color:var(--faint); margin-top:7px; min-height:1.2em;font-weight:700}
+.mon .made b{color:var(--accent); font-weight:inherit}
+
+details.adv{margin-top:8px}
+details.adv summary{
+  font-size:12px; color:var(--dim); cursor:pointer; list-style:none;font-weight:700
+}
+details.adv summary::before{content:"▸ "; }
+details.adv[open] summary::before{content:"▾ "; }
+details.adv .row{margin-top:8px}
+
+button.add{
+  width:100%; margin-top:6px; cursor:pointer; font:inherit; font-size:14px;
+  background:var(--surface2); color:var(--text);
+  border:1px dashed var(--line); border-radius:10px; padding:10px;
+}
+button.add:hover{border-color:var(--accent); color:var(--accent)}
+
+/* 結果 */
+.best{
+  background:linear-gradient(135deg,var(--accent-soft),var(--surface2));
+  border:1px solid var(--accent); border-radius:12px; padding:15px; margin-bottom:12px;
+}
+.best .eyebrow{font-size:12px; color:var(--dim); margin-bottom:2px;font-weight:700}
+.best .name{font-size:21px; font-weight:800; line-height:1.35}
+.best .why{font-size:13px; color:var(--dim); margin-top:7px;font-weight:700}
+
+table{width:100%; border-collapse:collapse; font-size:13px;font-weight:700}
+th,td{text-align:left; padding:7px 6px; border-bottom:1px solid var(--line-soft)}
+th{color:var(--faint); font-weight:700; font-size:12px}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+tr.no td{color:var(--faint)}
+.lack{color:var(--warn); font-size:12px;font-weight:700}
+.scroll{overflow-x:auto}
+
+.pill{
+  display:inline-block; background:var(--surface2); border:1px solid var(--line);
+  border-radius:6px; padding:1px 7px; font-size:12px; margin:2px 3px 2px 0;
+  font-variant-numeric:tabular-nums;font-weight:700
+}
+.pill.fav{background:var(--accent-soft); border-color:var(--accent)}
+
+.empty{color:var(--faint); font-size:13px; text-align:center; padding:16px 0;font-weight:700}
+.note{
+  background:var(--surface2); border-left:3px solid var(--warn);
+  border-radius:0 8px 8px 0; padding:10px 12px; font-size:12.5px; color:var(--dim);
+  margin-top:12px;font-weight:700
+}
+footer{color:var(--faint); font-size:11.5px; text-align:center; padding:22px 14px;font-weight:700}
+footer a{color:var(--faint)}
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1><span class="em">🍳</span>ポケスリ 今週の料理ナビ</h1>
+  <p class="lead">今週のカビゴンがリクエストしたカテゴリの中で、手持ちのメンバーが集める食材で
+     いちばんエナジーを稼げる料理をさがします。</p>
+</header>
+
+<section>
+  <h2><span class="num">1</span>行くフィールド</h2>
+  <div class="row">
+    <div>
+      <label for="field">フィールド</label>
+      <select id="field"></select>
+    </div>
+    <div style="flex:0 1 200px">
+      <label for="fieldBonus">フィールドボーナス（％）</label>
+      <input type="number" id="fieldBonus" value="0" min="0" max="100" step="1">
+    </div>
+  </div>
+  <div id="berryArea"></div>
+  <p class="hint">好みのきのみは、そのフィールドで決まっています。ワカクサ本島だけ毎週ランダムなので、自分で3つ選んでください。<br>
+    <b>フィールドボーナス</b>は、そのフィールドを進めると増える倍率で、
+    <b>きのみも料理もまとめて増えます</b>（最大+100％＝2倍）。
+    ゲーム内のフィールド選択画面に「エリアボーナス ○％」と出ている数字を入れてください。
+    <b>ここが0のままだと、実際よりかなり低い数字が出ます。</b></p>
+</section>
+
+<section>
+  <h2><span class="num">2</span>なべ（鍋）</h2>
+  <div class="row">
+    <div>
+      <label for="pot">なべ容量（拡張したぶん）</label>
+      <select id="pot"></select>
+    </div>
+    <div>
+      <label for="potAdd">料理パワーアップで今ついている分</label>
+      <input type="number" id="potAdd" value="0" min="0" max="200" step="1">
+    </div>
+    <div>
+      <label for="ticket">いいキャンプチケット</label>
+      <select id="ticket">
+        <option value="0">使っていない</option>
+        <option value="1">使っている（7日間）</option>
+      </select>
+    </div>
+  </div>
+  <div id="potView" style="margin-top:10px"></div>
+  <p class="hint">
+    「なべ容量」は、ゲームのホーム画面で <b>なべ</b> をタップすると出る数字です。<br>
+    「料理パワーアップで今ついている分」も同じ画面で確認できます（ついていなければ 0 のままで大丈夫です）。
+    <b>料理パワーアップは、1回料理するとリセットされます。</b>
+    そのため「次の料理までに何回発動するか」で効き方が決まります（このツールが自動で計算します）。<br>
+    いいキャンプチケットを使うと、<b>おてつだいスピードが1.2倍</b>・<b>なべ容量が1.5倍</b>・
+    ポケモンの<b>最大所持数が1.2倍</b>になります。<br>
+  </p>
+</section>
+
+<section>
+  <h2><span class="num">3</span>今週の料理カテゴリ</h2>
+  <div class="cats" id="cats"></div>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <label for="recipeLv">レシピレベル（入れていない料理に使う値）</label>
+      <select id="recipeLv"></select>
+    </div>
+    <div>
+      <label for="sunday">日曜日（最終日）</label>
+      <select id="sunday">
+        <option value="1">日曜をふくめる</option>
+        <option value="0">ふくめない</option>
+      </select>
+    </div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div>
+      <label for="eventDish">イベント：料理エナジー倍率</label>
+      <input type="number" id="eventDish" value="1" min="1" max="3" step="0.1">
+    </div>
+    <div>
+      <label for="eventSkill">イベント：スキル確率倍率</label>
+      <input type="number" id="eventSkill" value="1" min="1" max="3" step="0.1">
+    </div>
+  </div>
+  <div id="recipeLvView" style="margin-top:8px"></div>
+
+  <details class="adv" id="recipeLvBox" style="margin-top:12px">
+    <summary>料理ごとのレシピレベルを入れる（強くおすすめ）</summary>
+    <p class="hint" style="margin-top:8px">
+      <b>よく作る料理だけレベルが高い</b>のがふつうなので、1つの平均で計算すると
+      作ったことのない料理を高く見積もってしまいます。分かるぶんだけ入れてください。<br>
+      <b>入れた値はこのパソコンに記憶され、次に開いたときも残ります。</b>
+      レベルが上がったら書き換えてください。空欄のままなら、上の「入れていない料理に使う値」を使います。
+    </p>
+    <div class="row" style="margin-bottom:8px">
+      <div style="flex:0 1 auto">
+        <label class="chk"><input type="checkbox" id="lvOnlyCat" checked> 今週のカテゴリだけ表示</label>
+      </div>
+      <div style="flex:0 1 200px">
+        <label style="visibility:hidden">.</label>
+        <button class="add" id="lvClear" style="margin:0">入れた値を全部消す</button>
+      </div>
+    </div>
+    <div id="recipeLvGrid"></div>
+  </details>
+
+  <details class="adv" id="stockBox" style="margin-top:12px">
+    <summary>いま持っている食材を入れる（入れると精度が上がります）</summary>
+    <p class="hint" style="margin-top:8px">
+      ゲームの「食材」の画面に出ている数を入れてください。
+      <b>入れないと「今週ゼロから集める」前提</b>になり、実際よりかなり低い結果になります。
+      貯めた食材で大きい料理を作っている人は、ここが特に大事です。
+    </p>
+    <div id="stockGrid"></div>
+    <button class="add" id="stockClear" style="margin-top:8px">全部0にもどす</button>
+  </details>
+  <p class="hint">カビゴンがリクエストしたカテゴリを選びます。その週はこのカテゴリの料理しか作れません。<br>
+    <b>レシピレベル</b>は、同じ料理を作り続けると上がるもので、料理のエナジーがそのぶん増えます。
+    ゲーム内の「なべ」→ レシピ一覧で、料理ごとのレベルが見られます。
+    <b>ここを上げると、上位料理の価値が大きく上がります。</b><br>
+    <b>イベント</b>の欄は、期間中に「料理エナジー1.3倍」などのボーナスが出ているときだけ変えます。
+    ないときは 1 のままで大丈夫です。</p>
+</section>
+
+<section>
+  <h2><span class="num">4</span>手持ちのポケモンを読み込む</h2>
+
+  <ol class="hint" style="margin:0 0 10px; padding-left:1.4em; line-height:2">
+    <li><a href="https://nitoyon.github.io/pokesleep-tool/iv/" target="_blank" rel="noopener">個体値チェッカー</a>（nitoyon さんの「個体値計算機 for ポケモンスリープ」）を開いて、下のタブから <b>ボックス</b> を選ぶ</li>
+    <li>右上の <b>…</b>（三点）→ <b>エクスポート</b> を押す</li>
+    <li>形式は <b>CSV</b>（または TSV）のまま <b>コピー</b> を押す</li>
+    <li>下の枠の中で右クリック →「貼り付け」（または Ctrl+V）</li>
+    <li><b>読み込む</b> を押す</li>
+  </ol>
+  <textarea id="csv" rows="4" placeholder="ここに貼り付けます"
+    style="width:100%; font:inherit; font-size:13px; color:var(--text);
+           background:var(--surface2); border:1px solid var(--line);
+           border-radius:8px; padding:8px; resize:vertical;font-weight:700"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button class="add" id="importBtn" style="margin:0">読み込む</button>
+    <button class="add" id="clearBtn" style="margin:0; flex:0 1 140px">全部けす</button>
+  </div>
+  <div id="importMsg" style="margin-top:8px"></div>
+  <p class="hint">ボックスを<b>まるごと</b>読み込んで大丈夫です。この中から一番いい組み合わせを自動でさがします。<br>
+     ※ミュウとダークライは食材の仕組みが特別なので、このツールでは扱えません。</p>
+</section>
+
+<section>
+  <h2><span class="num">5</span>いちばんエナジーを稼げる編成</h2>
+  <div id="autoResult"><p class="empty">上で手持ちを読み込むと、ここに答えが出ます。</p></div>
+</section>
+
+<section>
+  <h2 style="margin-bottom:0">
+    <span class="num">6</span>自分で選んで試す（使わなくても大丈夫です）
+  </h2>
+  <details class="adv" style="margin-top:10px">
+    <summary>読み込んだポケモンを見る・直す／自分で5匹選んで比べる</summary>
+
+    <p class="hint" style="margin-top:10px">
+      読み込んだ内容を確かめたり、手で直したりできます。
+      「使う」にチェックした子だけで計算した結果が、いちばん下に出ます。
+      <b>5 の答えだけ見るなら、ここは開かなくて大丈夫です。</b>
+    </p>
+
+    <p id="teamCount"></p>
+    <div class="row" id="listBar" style="display:none; margin-bottom:8px">
+      <div style="flex:2 1 180px">
+        <label for="monSearch">名前でさがす</label>
+        <input type="text" id="monSearch" placeholder="例: ジバ">
+      </div>
+      <div style="flex:1 1 150px">
+        <label for="monSort">ならべ方</label>
+        <select id="monSort">
+          <option value="import">読み込んだ順</option>
+          <option value="berry">きのみエナジーが高い順</option>
+          <option value="level">レベルが高い順</option>
+          <option value="name">名前順</option>
+        </select>
+      </div>
+      <div style="flex:0 1 auto">
+        <label style="visibility:hidden">.</label>
+        <label class="chk"><input type="checkbox" id="onlyUse"> 使う子だけ</label>
+      </div>
+    </div>
+    <div id="mons"></div>
+    <button class="add" id="addBtn">＋ ポケモンを1匹ずつ足す</button>
+    <p class="hint">名前は途中まで打つと候補が出ます。食材構成は
+       <b>A＝1つ目の食材／B＝2つ目／C＝3つ目</b>です。</p>
+
+    <h2 style="margin-top:18px">自分で選んだ5匹の結果</h2>
+    <div id="result"><p class="empty">「使う」にチェックを入れると、ここに結果が出ます。</p></div>
+  </details>
+
+  <details class="adv" style="margin-top:12px">
+    <summary>くわしい設定（ふつうは変えなくて大丈夫です）</summary>
+    <div class="row">
+      <div>
+        <label for="sleepScore">睡眠スコア（毎日の平均）</label>
+        <input type="number" id="sleepScore" value="100" min="1" max="100" step="1">
+      </div>
+      <div>
+        <label for="days">計算する日数</label>
+        <input type="number" id="days" value="7" min="1" max="7" step="1">
+      </div>
+    </div>
+    <p class="hint"><b>睡眠スコア</b>で、げんきの回復量と起きている時間が決まります。
+       100 なら 8時間30分ねむって、げんきが100%まで回復します。<br>
+       げんきは起きている間、<b>10分で1%</b>ずつ減ります。げんきが下がるとおてつだいが遅くなるので、
+       <b>ヒーラー（げんきオールSなど）を入れると全員が速くなります。</b></p>
+  </details>
+</section>
+
+<footer>
+  ポケモンのデータは <a href="https://github.com/nitoyon/pokesleep-tool" target="_blank" rel="noopener">nitoyon/pokesleep-tool</a>（MIT）より。
+  レシピと好みのきのみは「ポケモンスリープ攻略・検証 Wiki*」「ポケらく」より（Ver.3.7.0 時点）。<br>
+  このページは個人の趣味で作ったもので、株式会社ポケモン等とは関係ありません。
+</footer>
+
+</div>
+
+<script>
+/* ====== データ（mytools/build.py が差し込みます） ====== */
+const POKEMON = [{"n":"アゴジムシ","t":"むし","sp":"食材","f":4600,"ir":15.5,"skr":2.9,"sk":"エナジーチャージS","cl":11,"el":2,"ec":0,"ings":[["めざましコーヒー",2,5,7],["あじわいキノコ",0,4,7],["あまいミツ",0,0,11]]},{"n":"アチゲータ","t":"ほのお","sp":"食材","f":3100,"ir":24.7,"skr":5,"sk":"げんきチャージS","cl":16,"el":1,"ec":1,"ings":[["とくせんリンゴ",2,5,7],["マメミート",0,4,6],["げきからハーブ",0,0,5]]},{"n":"アチャモ","t":"ほのお","sp":"きのみ","f":4300,"ir":16,"skr":4.4,"sk":"げんきチャージS","cl":12,"el":2,"ec":0,"ings":[["あじわいキノコ",1,2,4],["ワカクサ大豆",0,4,6],["ピュアなオイル",0,0,5]]},{"n":"アブソル","t":"あく","sp":"食材","f":2950,"ir":17.8,"skr":3.8,"sk":"エナジーチャージM","cl":21,"el":0,"ec":-1,"ings":[["リラックスカカオ",2,5,7],["とくせんリンゴ",0,8,12],["あじわいキノコ",0,0,7]]},{"n":"アブリボン","t":"フェアリー","sp":"食材","f":2300,"ir":19.4,"skr":2.5,"sk":"食材セレクトS","cl":19,"el":0,"ec":1,"ings":[["あまいミツ",2,5,7],["ピュアなオイル",0,4,6],["ワカクサコーン",0,0,5]]},{"n":"アブリー","t":"フェアリー","sp":"食材","f":4500,"ir":19.9,"skr":1.9,"sk":"食材セレクトS","cl":9,"el":1,"ec":0,"ings":[["あまいミツ",2,5,7],["ピュアなオイル",0,4,6],["ワカクサコーン",0,0,5]]},{"n":"アリゲイツ","t":"みず","sp":"きのみ","f":3400,"ir":25.3,"skr":5.2,"sk":"エナジーチャージS (ランダム)","cl":15,"el":1,"ec":1,"ings":[["マメミート",1,2,4],["ピュアなオイル",0,2,3],null]},{"n":"アルクジラ","t":"こおり","sp":"食材","f":5100,"ir":22.3,"skr":4.2,"sk":"げんきチャージS","cl":12,"el":1,"ec":0,"ings":[["ほっこりポテト",2,5,7],["マメミート",0,5,9],["ずっしりカボチャ",0,0,4]]},{"n":"アーボ","t":"どく","sp":"きのみ","f":5000,"ir":23.5,"skr":3.3,"sk":"げんきチャージS","cl":10,"el":1,"ec":0,"ings":[["マメミート",1,2,4],["とくせんエッグ",0,2,3],["げきからハーブ",0,0,3]]},{"n":"アーボック","t":"どく","sp":"きのみ","f":3400,"ir":26.4,"skr":5.7,"sk":"げんきチャージS","cl":14,"el":0,"ec":1,"ings":[["マメミート",1,2,4],["とくせんエッグ",0,2,3],["げきからハーブ",0,0,3]]},{"n":"イシズマイ","t":"むし","sp":"スキル","f":4300,"ir":17.5,"skr":5.4,"sk":"食材セレクトS","cl":8,"el":1,"ec":0,"ings":[["つやつやアボカド",1,2,4],["ほっこりポテト",0,3,5],["ピュアなオイル",0,0,5]]},{"n":"イシツブテ","t":"いわ","sp":"食材","f":5700,"ir":28.1,"skr":5.2,"sk":"エナジーチャージS (ランダム)","cl":9,"el":2,"ec":0,"ings":[["ワカクサ大豆",2,5,7],["ほっこりポテト",0,4,6],["あじわいキノコ",0,0,4]]},{"n":"イワパレス","t":"むし","sp":"スキル","f":3200,"ir":23.9,"skr":6.4,"sk":"食材セレクトS","cl":17,"el":0,"ec":1,"ings":[["つやつやアボカド",1,2,4],["ほっこりポテト",0,3,5],["ピュアなオイル",0,0,5]]},{"n":"イワーク","t":"いわ","sp":"きのみ","f":3100,"ir":13.2,"skr":2.3,"sk":"食材ゲットS","cl":22,"el":1,"ec":0,"ings":[["あんみんトマト",1,2,4],["マメミート",0,2,4],["ほっこりポテト",0,0,3]]},{"n":"イーブイ","t":"ノーマル","sp":"スキル","f":3700,"ir":19.2,"skr":5.5,"sk":"食材ゲットS","cl":12,"el":1,"ec":0,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"イーブイ (ハロウィン)","t":"ノーマル","sp":"スキル","f":3200,"ir":12,"skr":4.6,"sk":"食材ゲットS","cl":18,"el":0,"ec":-1,"ings":[["ずっしりカボチャ",1,2,4],["リラックスカカオ",0,4,6],["モーモーミルク",0,0,9]]},{"n":"イーブイ (ホリデー)","t":"ノーマル","sp":"きのみ","f":3100,"ir":15.6,"skr":3.2,"sk":"ゆめのかけらゲットS","cl":20,"el":0,"ec":-1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"ウインディ","t":"ほのお","sp":"スキル","f":2500,"ir":13.6,"skr":4.9,"sk":"おてつだいサポートS","cl":16,"el":0,"ec":1,"ings":[["げきからハーブ",1,2,4],["マメミート",0,3,5],["モーモーミルク",0,0,5]]},{"n":"ウェルカモ","t":"みず","sp":"食材","f":3600,"ir":25.9,"skr":2.7,"sk":"エナジーチャージM","cl":14,"el":1,"ec":1,"ings":[["ワカクサ大豆",2,5,7],["ふといながねぎ",0,2,4],["ピュアなオイル",0,0,6]]},{"n":"ウェーニバル","t":"かくとう","sp":"食材","f":2600,"ir":23.2,"skr":2.4,"sk":"エナジーチャージM","cl":19,"el":0,"ec":2,"ings":[["ワカクサ大豆",2,5,7],["ふといながねぎ",0,2,4],["ピュアなオイル",0,0,6]]},{"n":"ウォーグル","t":"ひこう","sp":"スキル","f":2400,"ir":12.1,"skr":3.5,"sk":"きのみバースト","cl":18,"el":0,"ec":1,"ings":[["マメミート",1,2,4],["ワカクサコーン",0,2,3],["めざましコーヒー",0,0,2]]},{"n":"ウソッキー","t":"いわ","sp":"スキル","f":4000,"ir":21.7,"skr":7.2,"sk":"エナジーチャージM","cl":16,"el":0,"ec":1,"ings":[["あんみんトマト",1,2,4],["ワカクサ大豆",0,2,4],["あじわいキノコ",0,0,2]]},{"n":"ウソハチ","t":"いわ","sp":"スキル","f":6300,"ir":18.9,"skr":6.1,"sk":"エナジーチャージM","cl":8,"el":1,"ec":0,"ings":[["あんみんトマト",1,2,4],["ワカクサ大豆",0,2,4],["あじわいキノコ",0,0,2]]},{"n":"ウッウ","t":"ひこう","sp":"食材","f":2700,"ir":16.5,"skr":3.9,"sk":"料理チャンスS","cl":19,"el":0,"ec":-1,"ings":[["ピュアなオイル",2,5,7],["ほっこりポテト",0,4,7],["とくせんエッグ",0,0,8]]},{"n":"ウツドン","t":"くさ","sp":"食材","f":3800,"ir":23.5,"skr":4,"sk":"げんきチャージS","cl":12,"el":1,"ec":1,"ings":[["あんみんトマト",2,5,7],["ほっこりポテト",0,4,6],["ふといながねぎ",0,0,4]]},{"n":"ウツボット","t":"くさ","sp":"食材","f":2800,"ir":23.3,"skr":3.9,"sk":"げんきチャージS","cl":17,"el":0,"ec":2,"ings":[["あんみんトマト",2,5,7],["ほっこりポテト",0,4,6],["ふといながねぎ",0,0,4]]},{"n":"ウパー","t":"みず","sp":"食材","f":5900,"ir":20.1,"skr":3.8,"sk":"げんきチャージS","cl":10,"el":1,"ec":0,"ings":[["あじわいキノコ",2,5,7],["ほっこりポテト",0,6,10],["マメミート",0,0,12]]},{"n":"ウパー (パルデア)","t":"どく","sp":"食材","f":6400,"ir":20.9,"skr":5.6,"sk":"げんきチャージS","cl":9,"el":1,"ec":0,"ings":[["リラックスカカオ",2,5,7],["めざましコーヒー",0,4,7],["ほっこりポテト",0,0,9]]},{"n":"エルレイド","t":"かくとう","sp":"スキル","f":2400,"ir":14.7,"skr":5.4,"sk":"おてつだいサポートS","cl":19,"el":0,"ec":2,"ings":[["とくせんリンゴ",1,2,4],["ワカクサコーン",0,1,2],["ふといながねぎ",0,0,2]]},{"n":"エレズン","t":"どく","sp":"スキル","f":5600,"ir":20.9,"skr":4.8,"sk":"食材ゲットS","cl":6,"el":1,"ec":0,"ings":[["モーモーミルク",1,2,4],["とくせんリンゴ",0,2,4],["ふといながねぎ",0,0,2]]},{"n":"エンテイ","t":"ほのお","sp":"スキル","f":2400,"ir":18.7,"skr":2.3,"sk":"おてつだいブースト","cl":19,"el":0,"ec":-1,"ings":[["ピュアなオイル",1,2,4],["あんみんトマト",0,2,4],["あじわいキノコ",0,0,3]]},{"n":"エンペルト","t":"はがね","sp":"きのみ","f":3200,"ir":16.8,"skr":3.8,"sk":"おてつだいサポートS","cl":18,"el":0,"ec":2,"ings":[["とくせんエッグ",1,2,4],["ふといながねぎ",0,1,2],["あまいミツ",0,0,4]]},{"n":"エーフィ","t":"エスパー","sp":"スキル","f":2400,"ir":16.4,"skr":4.4,"sk":"エナジーチャージM","cl":16,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"オコリザル","t":"かくとう","sp":"きのみ","f":2800,"ir":20,"skr":2.4,"sk":"エナジーチャージS (ランダム)","cl":17,"el":0,"ec":1,"ings":[["マメミート",1,2,4],["あじわいキノコ",0,1,2],["あまいミツ",0,0,4]]},{"n":"オンバット","t":"ドラゴン","sp":"スキル","f":5100,"ir":19.8,"skr":4.8,"sk":"エナジーチャージM","cl":7,"el":1,"ec":0,"ings":[["とくせんリンゴ",1,2,4],["ふといながねぎ",0,1,2],["マメミート",0,0,3]]},{"n":"オンバーン","t":"ドラゴン","sp":"スキル","f":2700,"ir":19.5,"skr":4.8,"sk":"エナジーチャージM","cl":18,"el":0,"ec":1,"ings":[["とくせんリンゴ",1,2,4],["ふといながねぎ",0,1,2],["マメミート",0,0,3]]},{"n":"オーダイル","t":"みず","sp":"きのみ","f":2800,"ir":25.7,"skr":5.5,"sk":"エナジーチャージS (ランダム)","cl":19,"el":0,"ec":2,"ings":[["マメミート",1,2,4],["ピュアなオイル",0,2,3],null]},{"n":"カイリュー","t":"ドラゴン","sp":"食材","f":2600,"ir":26.4,"skr":2.6,"sk":"げんきチャージS","cl":20,"el":0,"ec":2,"ings":[["げきからハーブ",2,5,7],["ワカクサコーン",0,4,7],["ピュアなオイル",0,0,8]]},{"n":"カイロス","t":"むし","sp":"食材","f":2400,"ir":21.6,"skr":3.1,"sk":"エナジーチャージM","cl":24,"el":0,"ec":-1,"ings":[["あまいミツ",2,5,7],["とくせんリンゴ",0,5,8],["マメミート",0,0,7]]},{"n":"カゲボウズ","t":"ゴースト","sp":"きのみ","f":3900,"ir":17.1,"skr":2.6,"sk":"エナジーチャージS (ランダム)","cl":11,"el":1,"ec":0,"ings":[["ピュアなオイル",1,2,4],["あったかジンジャー",0,2,4],["あじわいキノコ",0,0,3]]},{"n":"カヌチャン","t":"フェアリー","sp":"きのみ","f":4500,"ir":20.2,"skr":1.6,"sk":"エナジーチャージM","cl":12,"el":2,"ec":0,"ings":[["あんみんトマト",1,2,4],["リラックスカカオ",0,2,3],["ほっこりポテト",0,0,3]]},{"n":"カメックス","t":"みず","sp":"食材","f":2800,"ir":27.5,"skr":2.1,"sk":"食材ゲットS","cl":17,"el":0,"ec":2,"ings":[["モーモーミルク",2,5,7],["リラックスカカオ",0,3,5],["マメミート",0,0,7]]},{"n":"カメール","t":"みず","sp":"食材","f":3400,"ir":27.1,"skr":2,"sk":"食材ゲットS","cl":14,"el":1,"ec":1,"ings":[["モーモーミルク",2,5,7],["リラックスカカオ",0,3,5],["マメミート",0,0,7]]},{"n":"カモネギ","t":"ひこう","sp":"食材","f":3000,"ir":16,"skr":4.3,"sk":"エナジーチャージS","cl":18,"el":0,"ec":-1,"ings":[["ふといながねぎ",2,5,7],["マメミート",0,8,13],["あったかジンジャー",0,0,12]]},{"n":"カラカラ","t":"じめん","sp":"きのみ","f":4800,"ir":22.3,"skr":4.4,"sk":"げんきチャージS","cl":10,"el":1,"ec":0,"ings":[["あったかジンジャー",1,2,4],["リラックスカカオ",0,2,3],null]},{"n":"ガチゴラス","t":"いわ","sp":"きのみ","f":2800,"ir":17.8,"skr":2.9,"sk":"料理パワーアップS","cl":23,"el":0,"ec":1,"ings":[["マメミート",1,2,4],["とくせんリンゴ",0,3,4],["ほっこりポテト",0,0,3]]},{"n":"ガラガラ","t":"じめん","sp":"きのみ","f":3300,"ir":22.5,"skr":4.5,"sk":"げんきチャージS","cl":15,"el":0,"ec":1,"ings":[["あったかジンジャー",1,2,4],["リラックスカカオ",0,2,3],null]},{"n":"ガルーラ","t":"ノーマル","sp":"食材","f":2650,"ir":22.2,"skr":3.2,"sk":"食材ゲットS","cl":21,"el":0,"ec":-1,"ings":[["あったかジンジャー",2,5,7],["ほっこりポテト",0,4,6],["ワカクサ大豆",0,0,8]]},{"n":"ガーディ","t":"ほのお","sp":"スキル","f":4300,"ir":13.8,"skr":5,"sk":"おてつだいサポートS","cl":8,"el":1,"ec":0,"ings":[["げきからハーブ",1,2,4],["マメミート",0,3,5],["モーモーミルク",0,0,5]]},{"n":"キテルグマ","t":"かくとう","sp":"食材","f":2800,"ir":22.9,"skr":1.3,"sk":"エナジーチャージS (ランダム)","cl":20,"el":0,"ec":1,"ings":[["ワカクサコーン",2,5,7],["マメミート",0,6,10],["とくせんエッグ",0,0,9]]},{"n":"キモリ","t":"くさ","sp":"スキル","f":4500,"ir":17.2,"skr":3.5,"sk":"きのみバースト","cl":8,"el":2,"ec":0,"ings":[["とくせんエッグ",1,2,4],["めざましコーヒー",0,2,3],["ふといながねぎ",0,0,2]]},{"n":"キャタピー","t":"むし","sp":"きのみ","f":4400,"ir":17.9,"skr":0.8,"sk":"食材ゲットS","cl":11,"el":2,"ec":0,"ings":[["あまいミツ",1,2,4],["あんみんトマト",0,2,3],["ワカクサ大豆",0,0,4]]},{"n":"キュウコン","t":"ほのお","sp":"きのみ","f":2600,"ir":16.4,"skr":2.9,"sk":"げんきエールS","cl":23,"el":0,"ec":1,"ings":[["ワカクサ大豆",1,2,4],["ワカクサコーン",0,2,3],["ほっこりポテト",0,0,3]]},{"n":"キュウコン (アローラ)","t":"こおり","sp":"きのみ","f":2900,"ir":23.2,"skr":2.8,"sk":"おてつだいサポートS","cl":20,"el":0,"ec":1,"ings":[["ワカクサ大豆",1,2,4],["ワカクサコーン",0,2,3],["ほっこりポテト",0,0,3]]},{"n":"キュワワー","t":"フェアリー","sp":"食材","f":2500,"ir":16.7,"skr":3.5,"sk":"げんきエールS","cl":20,"el":0,"ec":-1,"ings":[["ワカクサコーン",2,5,7],["あったかジンジャー",0,6,9],["リラックスカカオ",0,0,7]]},{"n":"キルリア","t":"エスパー","sp":"スキル","f":3500,"ir":14.6,"skr":4.3,"sk":"げんきオールS","cl":13,"el":1,"ec":1,"ings":[["とくせんリンゴ",1,2,4],["ワカクサコーン",0,1,2],["ふといながねぎ",0,0,2]]},{"n":"クチート","t":"はがね","sp":"食材","f":3200,"ir":20.4,"skr":3.8,"sk":"かいりきバサミ (食材セレクトS)","cl":17,"el":0,"ec":-1,"ings":[["ピュアなオイル",2,5,7],["ワカクサコーン",0,4,6],["あんみんトマト",0,0,8]]},{"n":"クレセリア","t":"エスパー","sp":"スキル","f":2300,"ir":23.9,"skr":4.1,"sk":"みかづきのいのり (げんきオールS)","cl":22,"el":0,"ec":-1,"ings":[["あったかジンジャー",1,2,4],["リラックスカカオ",0,2,3],["あんみんトマト",0,0,4]]},{"n":"クワガノン","t":"むし","sp":"食材","f":2800,"ir":19.4,"skr":5.1,"sk":"エナジーチャージS","cl":19,"el":0,"ec":2,"ings":[["めざましコーヒー",2,5,7],["あじわいキノコ",0,4,7],["あまいミツ",0,0,11]]},{"n":"クワッス","t":"みず","sp":"食材","f":4800,"ir":26.1,"skr":2.8,"sk":"エナジーチャージM","cl":10,"el":2,"ec":0,"ings":[["ワカクサ大豆",2,5,7],["ふといながねぎ",0,2,4],["ピュアなオイル",0,0,6]]},{"n":"グレイシア","t":"こおり","sp":"スキル","f":3200,"ir":21.9,"skr":6.3,"sk":"料理パワーアップS","cl":12,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"グレッグル","t":"どく","sp":"食材","f":5600,"ir":22.8,"skr":4.2,"sk":"エナジーチャージS","cl":10,"el":1,"ec":0,"ings":[["ピュアなオイル",2,5,7],["マメミート",0,5,8],null]},{"n":"ケッキング","t":"ノーマル","sp":"きのみ","f":3600,"ir":33.9,"skr":6.7,"sk":"食材ゲットS","cl":16,"el":0,"ec":2,"ings":[["あんみんトマト",1,2,4],["あまいミツ",0,2,4],["とくせんリンゴ",0,0,4]]},{"n":"ゲンガー","t":"ゴースト","sp":"食材","f":2200,"ir":16.1,"skr":2.4,"sk":"エナジーチャージS (ランダム)","cl":18,"el":0,"ec":2,"ings":[["げきからハーブ",2,5,7],["あじわいキノコ",0,4,6],["ピュアなオイル",0,0,8]]},{"n":"コイル","t":"はがね","sp":"スキル","f":5800,"ir":18.2,"skr":6.4,"sk":"料理パワーアップS","cl":8,"el":2,"ec":0,"ings":[["ピュアなオイル",1,2,4],["げきからハーブ",0,2,3],null]},{"n":"ココドラ","t":"はがね","sp":"食材","f":5700,"ir":27.3,"skr":4.6,"sk":"げんきチャージS","cl":10,"el":2,"ec":0,"ings":[["マメミート",2,5,7],["めざましコーヒー",0,3,5],["ワカクサ大豆",0,0,7]]},{"n":"コダック","t":"みず","sp":"スキル","f":5400,"ir":13.6,"skr":12.6,"sk":"エナジーチャージS (ランダム)","cl":8,"el":1,"ec":0,"ings":[["リラックスカカオ",1,2,4],["とくせんリンゴ",0,4,6],["マメミート",0,0,5]]},{"n":"コドラ","t":"はがね","sp":"食材","f":4200,"ir":27.7,"skr":4.8,"sk":"げんきチャージS","cl":13,"el":1,"ec":1,"ings":[["マメミート",2,5,7],["めざましコーヒー",0,3,5],["ワカクサ大豆",0,0,7]]},{"n":"コモルー","t":"ドラゴン","sp":"きのみ","f":3800,"ir":20.6,"skr":2.7,"sk":"料理パワーアップS","cl":14,"el":1,"ec":1,"ings":[["ほっこりポテト",1,2,4],["あったかジンジャー",0,3,4],["マメミート",0,0,4]]},{"n":"コラッタ","t":"ノーマル","sp":"きのみ","f":4900,"ir":23.7,"skr":3,"sk":"げんきチャージS","cl":10,"el":1,"ec":0,"ings":[["とくせんリンゴ",1,2,4],["ワカクサ大豆",0,2,3],["マメミート",0,0,3]]},{"n":"コリンク","t":"でんき","sp":"食材","f":4400,"ir":18.1,"skr":1.8,"sk":"料理パワーアップS","cl":11,"el":2,"ec":0,"ings":[["あんみんトマト",2,5,7],["ピュアなオイル",0,4,7],["めざましコーヒー",0,0,5]]},{"n":"ゴウカザル","t":"かくとう","sp":"スキル","f":2400,"ir":10.6,"skr":3.3,"sk":"きのみバースト","cl":18,"el":0,"ec":2,"ings":[["げきからハーブ",1,2,4],["あったかジンジャー",0,3,4],["めざましコーヒー",0,0,3]]},{"n":"ゴクリン","t":"どく","sp":"スキル","f":5900,"ir":21.4,"skr":6.3,"sk":"ゆめのかけらゲットS (ランダム)","cl":8,"el":1,"ec":0,"ings":[["ワカクサ大豆",1,2,4],["あじわいキノコ",0,1,2],["あまいミツ",0,0,4]]},{"n":"ゴルダック","t":"みず","sp":"スキル","f":3400,"ir":16.2,"skr":12.5,"sk":"エナジーチャージS (ランダム)","cl":14,"el":0,"ec":1,"ings":[["リラックスカカオ",1,2,4],["とくせんリンゴ",0,4,6],["マメミート",0,0,5]]},{"n":"ゴローニャ","t":"いわ","sp":"食材","f":3100,"ir":28,"skr":5.2,"sk":"エナジーチャージS (ランダム)","cl":16,"el":0,"ec":2,"ings":[["ワカクサ大豆",2,5,7],["ほっこりポテト",0,4,6],["あじわいキノコ",0,0,4]]},{"n":"ゴローン","t":"いわ","sp":"食材","f":4000,"ir":27.2,"skr":4.8,"sk":"エナジーチャージS (ランダム)","cl":12,"el":1,"ec":1,"ings":[["ワカクサ大豆",2,5,7],["ほっこりポテト",0,4,6],["あじわいキノコ",0,0,4]]},{"n":"ゴース","t":"ゴースト","sp":"食材","f":3800,"ir":14.4,"skr":1.5,"sk":"エナジーチャージS (ランダム)","cl":10,"el":2,"ec":0,"ings":[["げきからハーブ",2,5,7],["あじわいキノコ",0,4,6],["ピュアなオイル",0,0,8]]},{"n":"ゴースト","t":"ゴースト","sp":"食材","f":3000,"ir":15.7,"skr":2.2,"sk":"エナジーチャージS (ランダム)","cl":14,"el":1,"ec":1,"ings":[["げきからハーブ",2,5,7],["あじわいキノコ",0,4,6],["ピュアなオイル",0,0,8]]},{"n":"サナギラス","t":"いわ","sp":"食材","f":3600,"ir":24.7,"skr":4.5,"sk":"げんきチャージS","cl":13,"el":1,"ec":1,"ings":[["あったかジンジャー",2,5,7],["ワカクサ大豆",0,5,8],["マメミート",0,0,8]]},{"n":"サンダース","t":"でんき","sp":"スキル","f":2200,"ir":15.1,"skr":3.9,"sk":"おてつだいサポートS","cl":17,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"サンド","t":"じめん","sp":"スキル","f":5300,"ir":10.0,"skr":4.6,"sk":"食材セレクトS","cl":11,"el":1,"ec":0,"ings":[["ずっしりカボチャ",1,2,4],["ワカクサコーン",0,4,6],["ほっこりポテト",0,0,7]]},{"n":"サンドパン","t":"じめん","sp":"スキル","f":2800,"ir":10.8,"skr":4.3,"sk":"食材セレクトS","cl":17,"el":0,"ec":1,"ings":[["ずっしりカボチャ",1,2,4],["ワカクサコーン",0,4,6],["ほっこりポテト",0,0,7]]},{"n":"サーナイト","t":"エスパー","sp":"スキル","f":2400,"ir":14.4,"skr":4.2,"sk":"げんきオールS","cl":18,"el":0,"ec":2,"ings":[["とくせんリンゴ",1,2,4],["ワカクサコーン",0,1,2],["ふといながねぎ",0,0,2]]},{"n":"シャワーズ","t":"みず","sp":"スキル","f":3100,"ir":21.2,"skr":6.1,"sk":"食材ゲットS","cl":13,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"ジジーロン","t":"ドラゴン","sp":"食材","f":3500,"ir":29.4,"skr":4.6,"sk":"料理チャンスS","cl":25,"el":0,"ec":-1,"ings":[["ワカクサ大豆",2,5,7],["つやつやアボカド",0,3,4],["マメミート",0,0,7]]},{"n":"ジバコイル","t":"はがね","sp":"スキル","f":3100,"ir":17.9,"skr":6.2,"sk":"料理パワーアップS","cl":13,"el":0,"ec":2,"ings":[["ピュアなオイル",1,2,4],["げきからハーブ",0,2,3],null]},{"n":"ジュカイン","t":"くさ","sp":"スキル","f":2300,"ir":10.7,"skr":3,"sk":"きのみバースト","cl":17,"el":0,"ec":2,"ings":[["とくせんエッグ",1,2,4],["めざましコーヒー",0,2,3],["ふといながねぎ",0,0,2]]},{"n":"ジュプトル","t":"くさ","sp":"スキル","f":3300,"ir":15,"skr":3.5,"sk":"きのみバースト","cl":11,"el":1,"ec":1,"ings":[["とくせんエッグ",1,2,4],["めざましコーヒー",0,2,3],["ふといながねぎ",0,0,2]]},{"n":"ジュペッタ","t":"ゴースト","sp":"きのみ","f":2600,"ir":17.9,"skr":3.3,"sk":"エナジーチャージS (ランダム)","cl":19,"el":0,"ec":1,"ings":[["ピュアなオイル",1,2,4],["あったかジンジャー",0,2,4],["あじわいキノコ",0,0,3]]},{"n":"スイクン","t":"みず","sp":"スキル","f":2700,"ir":27.7,"skr":2.6,"sk":"おてつだいブースト","cl":17,"el":0,"ec":-1,"ings":[["とくせんリンゴ",1,2,4],["ピュアなオイル",0,2,3],["ワカクサコーン",0,0,2]]},{"n":"ストリンダー (ハイ)","t":"どく","sp":"スキル","f":3100,"ir":23.9,"skr":6.4,"sk":"プラス (食材ゲットS)","cl":18,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["とくせんリンゴ",0,2,4],["ふといながねぎ",0,0,2]]},{"n":"ストリンダー (ロー)","t":"どく","sp":"スキル","f":3100,"ir":23.9,"skr":6.4,"sk":"マイナス (料理パワーアップS)","cl":18,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["とくせんリンゴ",0,2,4],["ふといながねぎ",0,0,2]]},{"n":"ゼニガメ","t":"みず","sp":"食材","f":4500,"ir":27.1,"skr":2,"sk":"食材ゲットS","cl":10,"el":2,"ec":0,"ings":[["モーモーミルク",2,5,7],["リラックスカカオ",0,3,5],["マメミート",0,0,7]]},{"n":"ソーナノ","t":"エスパー","sp":"スキル","f":5800,"ir":21.3,"skr":6.9,"sk":"げんきエールS","cl":7,"el":1,"ec":0,"ings":[["とくせんリンゴ",1,2,4],["あじわいキノコ",0,1,2],["ピュアなオイル",0,0,3]]},{"n":"ソーナンス","t":"エスパー","sp":"スキル","f":3500,"ir":21.1,"skr":8.2,"sk":"げんきエールS","cl":16,"el":0,"ec":1,"ings":[["とくせんリンゴ",1,2,4],["あじわいキノコ",0,1,2],["ピュアなオイル",0,0,3]]},{"n":"タツベイ","t":"ドラゴン","sp":"きのみ","f":5300,"ir":20.9,"skr":2.7,"sk":"料理パワーアップS","cl":9,"el":2,"ec":0,"ings":[["ほっこりポテト",1,2,4],["あったかジンジャー",0,3,4],["マメミート",0,0,4]]},{"n":"タマザラシ","t":"こおり","sp":"きのみ","f":5600,"ir":22.4,"skr":2.3,"sk":"食材ゲットS","cl":9,"el":2,"ec":0,"ings":[["ピュアなオイル",1,2,4],["マメミート",0,3,4],["あったかジンジャー",0,0,4]]},{"n":"タマザラシ (ホリデー)","t":"こおり","sp":"スキル","f":3300,"ir":21.4,"skr":5,"sk":"料理チャンスS","cl":20,"el":0,"ec":-1,"ings":[["ピュアなオイル",1,2,4],["マメミート",0,3,4],["あったかジンジャー",0,0,4]]},{"n":"ダグトリオ","t":"じめん","sp":"食材","f":2650,"ir":19,"skr":2,"sk":"エナジーチャージS","cl":16,"el":0,"ec":1,"ings":[["あんみんトマト",2,5,7],["ふといながねぎ",0,3,4],["ワカクサ大豆",0,0,8]]},{"n":"チコリータ","t":"くさ","sp":"きのみ","f":4400,"ir":16.9,"skr":3.9,"sk":"エナジーチャージS (ランダム)","cl":12,"el":2,"ec":0,"ings":[["リラックスカカオ",1,2,4],["あまいミツ",0,3,5],["ふといながねぎ",0,0,3]]},{"n":"チゴラス","t":"いわ","sp":"きのみ","f":5200,"ir":20.3,"skr":2.4,"sk":"料理パワーアップS","cl":11,"el":1,"ec":0,"ings":[["マメミート",1,2,4],["とくせんリンゴ",0,3,4],["ほっこりポテト",0,0,3]]},{"n":"チルタリス","t":"ドラゴン","sp":"きのみ","f":3500,"ir":25.8,"skr":6.1,"sk":"げんきチャージS","cl":14,"el":0,"ec":1,"ings":[["とくせんエッグ",1,2,4],["ワカクサ大豆",0,3,4],["とくせんリンゴ",0,0,5]]},{"n":"チルット","t":"ひこう","sp":"きのみ","f":4200,"ir":17.7,"skr":3.2,"sk":"げんきチャージS","cl":12,"el":1,"ec":0,"ings":[["とくせんエッグ",1,2,4],["ワカクサ大豆",0,3,4],["とくせんリンゴ",0,0,5]]},{"n":"ツボツボ","t":"むし","sp":"スキル","f":3600,"ir":20.5,"skr":5.9,"sk":"きのみジュース (げんきオールS)","cl":16,"el":0,"ec":-1,"ings":[["ピュアなオイル",1,2,4],["めざましコーヒー",0,2,3],["あまいミツ",0,0,4]]},{"n":"ディグダ","t":"じめん","sp":"食材","f":4300,"ir":19.2,"skr":2.1,"sk":"エナジーチャージS","cl":10,"el":1,"ec":0,"ings":[["あんみんトマト",2,5,7],["ふといながねぎ",0,3,4],["ワカクサ大豆",0,0,8]]},{"n":"デカヌチャン","t":"フェアリー","sp":"きのみ","f":2400,"ir":18.5,"skr":2,"sk":"エナジーチャージM","cl":20,"el":0,"ec":2,"ings":[["あんみんトマト",1,2,4],["リラックスカカオ",0,2,3],["ほっこりポテト",0,0,3]]},{"n":"デデンネ","t":"でんき","sp":"スキル","f":2500,"ir":17.7,"skr":4.5,"sk":"料理チャンスS","cl":19,"el":0,"ec":-1,"ings":[["とくせんリンゴ",1,2,4],["リラックスカカオ",0,1,2],["ワカクサコーン",0,0,2]]},{"n":"デリバード","t":"ひこう","sp":"食材","f":2500,"ir":18.8,"skr":3,"sk":"プレゼント (食材ゲットS)","cl":20,"el":0,"ec":-1,"ings":[["とくせんエッグ",2,5,7],["とくせんリンゴ",0,6,9],["リラックスカカオ",0,0,5]]},{"n":"デルビル","t":"あく","sp":"きのみ","f":4900,"ir":20.1,"skr":3.7,"sk":"エナジーチャージM","cl":10,"el":1,"ec":0,"ings":[["げきからハーブ",1,2,4],["あったかジンジャー",0,3,4],["ふといながねぎ",0,0,3]]},{"n":"デンヂムシ","t":"むし","sp":"食材","f":3300,"ir":15.4,"skr":2.8,"sk":"エナジーチャージS","cl":15,"el":1,"ec":1,"ings":[["めざましコーヒー",2,5,7],["あじわいキノコ",0,4,7],["あまいミツ",0,0,11]]},{"n":"デンリュウ","t":"でんき","sp":"スキル","f":2500,"ir":13,"skr":4.7,"sk":"エナジーチャージM","cl":15,"el":0,"ec":2,"ings":[["げきからハーブ",1,2,4],["とくせんエッグ",0,3,4],null]},{"n":"トゲキッス","t":"フェアリー","sp":"スキル","f":2600,"ir":15.8,"skr":5.3,"sk":"ゆびをふる","cl":16,"el":0,"ec":2,"ings":[["とくせんエッグ",1,2,4],["あったかジンジャー",0,2,4],["リラックスカカオ",0,0,3]]},{"n":"トゲチック","t":"フェアリー","sp":"スキル","f":3800,"ir":16.3,"skr":5.6,"sk":"ゆびをふる","cl":10,"el":1,"ec":1,"ings":[["とくせんエッグ",1,2,4],["あったかジンジャー",0,2,4],["リラックスカカオ",0,0,3]]},{"n":"トゲデマル","t":"はがね","sp":"スキル","f":2700,"ir":16.9,"skr":5.5,"sk":"ほっぺすりすり (げんきエールS)","cl":18,"el":0,"ec":-1,"ings":[["モーモーミルク",1,2,4],["つやつやアボカド",0,1,2],["リラックスカカオ",0,0,2]]},{"n":"トゲピー","t":"フェアリー","sp":"スキル","f":4800,"ir":15.1,"skr":4.9,"sk":"ゆびをふる","cl":8,"el":2,"ec":0,"ings":[["とくせんエッグ",1,2,4],["あったかジンジャー",0,2,4],["リラックスカカオ",0,0,3]]},{"n":"トドグラー","t":"こおり","sp":"きのみ","f":4000,"ir":22.1,"skr":2.1,"sk":"食材ゲットS","cl":13,"el":1,"ec":1,"ings":[["ピュアなオイル",1,2,4],["マメミート",0,3,4],["あったかジンジャー",0,0,4]]},{"n":"トドゼルガ","t":"こおり","sp":"きのみ","f":3000,"ir":22.3,"skr":2.2,"sk":"食材ゲットS","cl":18,"el":0,"ec":2,"ings":[["ピュアなオイル",1,2,4],["マメミート",0,3,4],["あったかジンジャー",0,0,4]]},{"n":"トランセル","t":"むし","sp":"きのみ","f":4200,"ir":20.8,"skr":1.8,"sk":"食材ゲットS","cl":13,"el":1,"ec":1,"ings":[["あまいミツ",1,2,4],["あんみんトマト",0,2,3],["ワカクサ大豆",0,0,4]]},{"n":"ドオー","t":"どく","sp":"食材","f":3500,"ir":20.8,"skr":5.5,"sk":"げんきチャージS","cl":20,"el":0,"ec":1,"ings":[["リラックスカカオ",2,5,7],["めざましコーヒー",0,4,7],["ほっこりポテト",0,0,9]]},{"n":"ドクロッグ","t":"どく","sp":"食材","f":3400,"ir":22.9,"skr":4.3,"sk":"エナジーチャージS","cl":14,"el":0,"ec":1,"ings":[["ピュアなオイル",2,5,7],["マメミート",0,5,8],null]},{"n":"ドダイトス","t":"じめん","sp":"スキル","f":2900,"ir":15.6,"skr":4.8,"sk":"げんきオールS","cl":17,"el":0,"ec":2,"ings":[["あじわいキノコ",1,2,4],["ほっこりポテト",0,3,5],["あったかジンジャー",0,0,6]]},{"n":"ドンカラス","t":"あく","sp":"スキル","f":3200,"ir":14.3,"skr":6.7,"sk":"きょううん (食材セレクトS)","cl":18,"el":0,"ec":1,"ings":[["めざましコーヒー",1,2,4],["ワカクサ大豆",0,3,6],["げきからハーブ",0,0,4]]},{"n":"ドードリオ","t":"ひこう","sp":"きのみ","f":2300,"ir":18.4,"skr":2,"sk":"げんきチャージS","cl":21,"el":0,"ec":1,"ings":[["ワカクサ大豆",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"ドードー","t":"ひこう","sp":"きのみ","f":3800,"ir":18.4,"skr":2,"sk":"げんきチャージS","cl":13,"el":1,"ec":0,"ings":[["ワカクサ大豆",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"ナエトル","t":"くさ","sp":"スキル","f":4500,"ir":13.2,"skr":4.1,"sk":"げんきオールS","cl":12,"el":2,"ec":0,"ings":[["あじわいキノコ",1,2,4],["ほっこりポテト",0,3,5],["あったかジンジャー",0,0,6]]},{"n":"ナカヌチャン","t":"フェアリー","sp":"きのみ","f":3300,"ir":18.6,"skr":1.8,"sk":"エナジーチャージM","cl":16,"el":1,"ec":1,"ings":[["あんみんトマト",1,2,4],["リラックスカカオ",0,2,3],["ほっこりポテト",0,0,3]]},{"n":"ナックラー","t":"じめん","sp":"食材","f":5000,"ir":15.2,"skr":3.1,"sk":"エナジーチャージS","cl":8,"el":2,"ec":0,"ings":[["つやつやアボカド",2,5,7],["げきからハーブ",0,6,9],["ワカクサ大豆",0,0,12]]},{"n":"ナマケロ","t":"ノーマル","sp":"きのみ","f":4900,"ir":21.6,"skr":1.9,"sk":"食材ゲットS","cl":7,"el":2,"ec":0,"ings":[["あんみんトマト",1,2,4],["あまいミツ",0,2,4],["とくせんリンゴ",0,0,4]]},{"n":"ニャオハ","t":"くさ","sp":"食材","f":4600,"ir":20.8,"skr":2.3,"sk":"料理パワーアップS","cl":10,"el":2,"ec":0,"ings":[["ほっこりポテト",2,5,7],["モーモーミルク",0,6,9],["あったかジンジャー",0,0,8]]},{"n":"ニャローテ","t":"くさ","sp":"食材","f":3500,"ir":20.9,"skr":2.3,"sk":"料理パワーアップS","cl":14,"el":1,"ec":1,"ings":[["ほっこりポテト",2,5,7],["モーモーミルク",0,6,9],["あったかジンジャー",0,0,8]]},{"n":"ニャース","t":"ノーマル","sp":"スキル","f":4400,"ir":16.3,"skr":4.2,"sk":"ゆめのかけらゲットS","cl":9,"el":1,"ec":0,"ings":[["モーモーミルク",1,2,4],["マメミート",0,2,3],null]},{"n":"ニューラ","t":"あく","sp":"きのみ","f":3200,"ir":25.5,"skr":1.9,"sk":"料理チャンスS","cl":17,"el":1,"ec":0,"ings":[["マメミート",1,2,4],["とくせんエッグ",0,2,3],["ワカクサ大豆",0,0,4]]},{"n":"ニンフィア","t":"フェアリー","sp":"スキル","f":2600,"ir":17.8,"skr":4,"sk":"げんきオールS","cl":15,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"ヌイコグマ","t":"かくとう","sp":"食材","f":4100,"ir":22.5,"skr":1.1,"sk":"エナジーチャージS (ランダム)","cl":13,"el":1,"ec":0,"ings":[["ワカクサコーン",2,5,7],["マメミート",0,6,10],["とくせんエッグ",0,0,9]]},{"n":"ヌオー","t":"みず","sp":"食材","f":3400,"ir":19,"skr":3.2,"sk":"げんきチャージS","cl":16,"el":0,"ec":1,"ings":[["あじわいキノコ",2,5,7],["ほっこりポテト",0,6,10],["マメミート",0,0,12]]},{"n":"ヌマクロー","t":"じめん","sp":"きのみ","f":3500,"ir":16.8,"skr":2.8,"sk":"料理チャンスS","cl":16,"el":1,"ec":1,"ings":[["ワカクサコーン",1,2,4],["モーモーミルク",0,3,5],["あじわいキノコ",0,0,3]]},{"n":"ネイティ","t":"エスパー","sp":"きのみ","f":4500,"ir":18.5,"skr":1.6,"sk":"食材ゲットS","cl":11,"el":1,"ec":0,"ings":[["とくせんエッグ",1,2,4],["リラックスカカオ",0,2,3],["とくせんリンゴ",0,0,5]]},{"n":"ネイティオ","t":"エスパー","sp":"きのみ","f":2500,"ir":19.1,"skr":2.5,"sk":"食材ゲットS","cl":19,"el":0,"ec":1,"ings":[["とくせんエッグ",1,2,4],["リラックスカカオ",0,2,3],["とくせんリンゴ",0,0,5]]},{"n":"ハガネール","t":"はがね","sp":"きのみ","f":3000,"ir":15.4,"skr":3.2,"sk":"食材ゲットS","cl":25,"el":0,"ec":1,"ings":[["あんみんトマト",1,2,4],["マメミート",0,2,4],["ほっこりポテト",0,0,3]]},{"n":"ハクリュー","t":"ドラゴン","sp":"食材","f":3800,"ir":26.2,"skr":2.5,"sk":"げんきチャージS","cl":12,"el":1,"ec":1,"ings":[["げきからハーブ",2,5,7],["ワカクサコーン",0,4,7],["ピュアなオイル",0,0,8]]},{"n":"ハピナス","t":"ノーマル","sp":"食材","f":3100,"ir":23.8,"skr":2.3,"sk":"げんきオールS","cl":21,"el":0,"ec":2,"ings":[["とくせんエッグ",2,5,7],["ほっこりポテト",0,4,7],["あまいミツ",0,0,8]]},{"n":"ハヤシガメ","t":"くさ","sp":"スキル","f":3700,"ir":15,"skr":4.6,"sk":"げんきオールS","cl":14,"el":1,"ec":1,"ings":[["あじわいキノコ",1,2,4],["ほっこりポテト",0,3,5],["あったかジンジャー",0,0,6]]},{"n":"ハルクジラ","t":"こおり","sp":"食材","f":2800,"ir":20.9,"skr":4.2,"sk":"げんきチャージS","cl":25,"el":0,"ec":1,"ings":[["ほっこりポテト",2,5,7],["マメミート",0,5,9],["ずっしりカボチャ",0,0,4]]},{"n":"バクフーン","t":"ほのお","sp":"きのみ","f":2400,"ir":20.8,"skr":3.9,"sk":"エナジーチャージS (ランダム)","cl":23,"el":0,"ec":2,"ings":[["あったかジンジャー",1,2,4],["げきからハーブ",0,2,3],["ピュアなオイル",0,0,3]]},{"n":"バケッチャ (おおだましゅ)","t":"ゴースト","sp":"食材","f":5500,"ir":12,"skr":4.9,"sk":"エナジーチャージS","cl":15,"el":1,"ec":0,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"バケッチャ (こだましゅ)","t":"ゴースト","sp":"食材","f":5300,"ir":12,"skr":4.9,"sk":"エナジーチャージS","cl":7,"el":1,"ec":0,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"バケッチャ (ちゅうだましゅ)","t":"ゴースト","sp":"食材","f":5400,"ir":12,"skr":4.9,"sk":"エナジーチャージS","cl":11,"el":1,"ec":0,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"バケッチャ (ギガだましゅ)","t":"ゴースト","sp":"食材","f":5600,"ir":12,"skr":4.9,"sk":"エナジーチャージS","cl":21,"el":1,"ec":0,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"バシャーモ","t":"かくとう","sp":"きのみ","f":2600,"ir":15.3,"skr":4.9,"sk":"げんきチャージS","cl":22,"el":0,"ec":2,"ings":[["あじわいキノコ",1,2,4],["ワカクサ大豆",0,4,6],["ピュアなオイル",0,0,5]]},{"n":"バタフリー","t":"むし","sp":"きのみ","f":2500,"ir":19.7,"skr":1.4,"sk":"食材ゲットS","cl":21,"el":0,"ec":2,"ings":[["あまいミツ",1,2,4],["あんみんトマト",0,2,3],["ワカクサ大豆",0,0,4]]},{"n":"バリヤード","t":"エスパー","sp":"食材","f":2800,"ir":21.6,"skr":3.9,"sk":"ものまね (スキルコピー)","cl":17,"el":0,"ec":1,"ings":[["あんみんトマト",2,5,7],["ほっこりポテト",0,4,6],["ふといながねぎ",0,0,4]]},{"n":"バンギラス","t":"あく","sp":"食材","f":2700,"ir":26.6,"skr":5.2,"sk":"げんきチャージS","cl":19,"el":0,"ec":2,"ings":[["あったかジンジャー",2,5,7],["ワカクサ大豆",0,5,8],["マメミート",0,0,8]]},{"n":"パモ","t":"でんき","sp":"スキル","f":4600,"ir":11.1,"skr":3.6,"sk":"げんきオールS","cl":9,"el":2,"ec":0,"ings":[["リラックスカカオ",1,2,4],["モーモーミルク",0,3,6],["とくせんエッグ",0,0,5]]},{"n":"パモット","t":"でんき","sp":"スキル","f":3300,"ir":10.9,"skr":3.6,"sk":"げんきオールS","cl":12,"el":1,"ec":1,"ings":[["リラックスカカオ",1,2,4],["モーモーミルク",0,3,6],["とくせんエッグ",0,0,5]]},{"n":"パンプジン (おおだましゅ)","t":"ゴースト","sp":"食材","f":3300,"ir":13,"skr":4.9,"sk":"エナジーチャージS","cl":19,"el":0,"ec":1,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"パンプジン (こだましゅ)","t":"ゴースト","sp":"食材","f":3100,"ir":13,"skr":4.9,"sk":"エナジーチャージS","cl":10,"el":0,"ec":1,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"パンプジン (ちゅうだましゅ)","t":"ゴースト","sp":"食材","f":3200,"ir":13,"skr":4.9,"sk":"エナジーチャージS","cl":14,"el":0,"ec":1,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"パンプジン (ギガだましゅ)","t":"ゴースト","sp":"食材","f":3400,"ir":13,"skr":4.9,"sk":"エナジーチャージS","cl":25,"el":0,"ec":1,"ings":[["ずっしりカボチャ",2,5,7],["ワカクサ大豆",0,11,18],["ほっこりポテト",0,0,15]]},{"n":"パーモット","t":"でんき","sp":"スキル","f":2400,"ir":14.1,"skr":3.9,"sk":"げんきオールS","cl":18,"el":0,"ec":2,"ings":[["リラックスカカオ",1,2,4],["モーモーミルク",0,3,6],["とくせんエッグ",0,0,5]]},{"n":"ヒコザル","t":"ほのお","sp":"スキル","f":4100,"ir":11.4,"skr":3.3,"sk":"きのみバースト","cl":10,"el":2,"ec":0,"ings":[["げきからハーブ",1,2,4],["あったかジンジャー",0,3,4],["めざましコーヒー",0,0,3]]},{"n":"ヒトカゲ","t":"ほのお","sp":"食材","f":3500,"ir":20.1,"skr":1.1,"sk":"食材ゲットS","cl":12,"el":2,"ec":0,"ings":[["マメミート",2,5,7],["あったかジンジャー",0,4,7],["げきからハーブ",0,0,6]]},{"n":"ヒノアラシ","t":"ほのお","sp":"きのみ","f":3500,"ir":18.6,"skr":2.1,"sk":"エナジーチャージS (ランダム)","cl":14,"el":2,"ec":0,"ings":[["あったかジンジャー",1,2,4],["げきからハーブ",0,2,3],["ピュアなオイル",0,0,3]]},{"n":"ビブラーバ","t":"じめん","sp":"食材","f":3700,"ir":15.5,"skr":3.4,"sk":"エナジーチャージS","cl":12,"el":1,"ec":1,"ings":[["つやつやアボカド",2,5,7],["げきからハーブ",0,6,9],["ワカクサ大豆",0,0,12]]},{"n":"ピィ","t":"フェアリー","sp":"きのみ","f":5600,"ir":16.4,"skr":3.4,"sk":"ゆびをふる","cl":10,"el":2,"ec":0,"ings":[["とくせんリンゴ",1,2,4],["あまいミツ",0,2,3],["ワカクサ大豆",0,0,3]]},{"n":"ピカチュウ","t":"でんき","sp":"きのみ","f":2700,"ir":20.7,"skr":2.1,"sk":"エナジーチャージS","cl":17,"el":1,"ec":1,"ings":[["とくせんリンゴ",1,2,4],["あったかジンジャー",0,2,3],["とくせんエッグ",0,0,3]]},{"n":"ピカチュウ (キャプテン)","t":"でんき","sp":"きのみ","f":2500,"ir":17.5,"skr":1.8,"sk":"食材ゲットS","cl":21,"el":0,"ec":-1,"ings":[["とくせんリンゴ",1,2,4],["あったかジンジャー",0,2,3],["とくせんエッグ",0,0,3]]},{"n":"ピカチュウ (ハロウィン)","t":"でんき","sp":"きのみ","f":2500,"ir":21.8,"skr":2.8,"sk":"エナジーチャージS (ランダム)","cl":18,"el":0,"ec":-1,"ings":[["とくせんリンゴ",1,2,4],["あったかジンジャー",0,2,3],["とくせんエッグ",0,0,3]]},{"n":"ピカチュウ (ホリデー)","t":"でんき","sp":"スキル","f":2500,"ir":13.1,"skr":4.2,"sk":"ゆめのかけらゲットS","cl":20,"el":0,"ec":-1,"ings":[["とくせんリンゴ",1,2,4],["あったかジンジャー",0,2,3],["とくせんエッグ",0,0,3]]},{"n":"ピクシー","t":"フェアリー","sp":"きのみ","f":2800,"ir":16.8,"skr":4,"sk":"ゆびをふる","cl":24,"el":0,"ec":2,"ings":[["とくせんリンゴ",1,2,4],["あまいミツ",0,2,3],["ワカクサ大豆",0,0,3]]},{"n":"ピチュー","t":"でんき","sp":"きのみ","f":4300,"ir":21,"skr":2.3,"sk":"エナジーチャージS","cl":10,"el":2,"ec":0,"ings":[["とくせんリンゴ",1,2,4],["あったかジンジャー",0,2,3],["とくせんエッグ",0,0,3]]},{"n":"ピッピ","t":"フェアリー","sp":"きのみ","f":4000,"ir":16.8,"skr":3.6,"sk":"ゆびをふる","cl":16,"el":1,"ec":1,"ings":[["とくせんリンゴ",1,2,4],["あまいミツ",0,2,3],["ワカクサ大豆",0,0,3]]},{"n":"ピンプク","t":"ノーマル","sp":"食材","f":5400,"ir":21,"skr":1.3,"sk":"げんきオールS","cl":7,"el":2,"ec":0,"ings":[["とくせんエッグ",2,5,7],["ほっこりポテト",0,4,7],["あまいミツ",0,0,8]]},{"n":"フシギソウ","t":"くさ","sp":"食材","f":3300,"ir":25.5,"skr":1.9,"sk":"食材ゲットS","cl":14,"el":1,"ec":1,"ings":[["あまいミツ",2,5,7],["あんみんトマト",0,4,7],["ほっこりポテト",0,0,6]]},{"n":"フシギダネ","t":"くさ","sp":"食材","f":4400,"ir":25.7,"skr":1.9,"sk":"食材ゲットS","cl":11,"el":2,"ec":0,"ings":[["あまいミツ",2,5,7],["あんみんトマト",0,4,7],["ほっこりポテト",0,0,6]]},{"n":"フシギバナ","t":"くさ","sp":"食材","f":2800,"ir":26.6,"skr":2.1,"sk":"食材ゲットS","cl":17,"el":0,"ec":2,"ings":[["あまいミツ",2,5,7],["あんみんトマト",0,4,7],["ほっこりポテト",0,0,6]]},{"n":"フライゴン","t":"じめん","sp":"食材","f":2700,"ir":17.2,"skr":3.9,"sk":"エナジーチャージS","cl":17,"el":0,"ec":2,"ings":[["つやつやアボカド",2,5,7],["げきからハーブ",0,6,9],["ワカクサ大豆",0,0,12]]},{"n":"フワライド","t":"ゴースト","sp":"スキル","f":2500,"ir":12.8,"skr":6.3,"sk":"たくわえる (エナジーチャージS)","cl":17,"el":0,"ec":1,"ings":[["ワカクサコーン",1,2,4],["ピュアなオイル",0,3,4],["ほっこりポテト",0,0,4]]},{"n":"フワンテ","t":"ゴースト","sp":"スキル","f":4800,"ir":13.7,"skr":7.1,"sk":"たくわえる (エナジーチャージS)","cl":9,"el":1,"ec":0,"ings":[["ワカクサコーン",1,2,4],["ピュアなオイル",0,3,4],["ほっこりポテト",0,0,4]]},{"n":"ブラッキー","t":"あく","sp":"スキル","f":3200,"ir":21.9,"skr":10.1,"sk":"つきのひかり (げんきチャージS)","cl":14,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"ブースター","t":"ほのお","sp":"スキル","f":2700,"ir":18.5,"skr":5.2,"sk":"料理パワーアップS","cl":14,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"プクリン","t":"フェアリー","sp":"スキル","f":2750,"ir":19.1,"skr":4,"sk":"げんきオールS","cl":22,"el":0,"ec":2,"ings":[["あまいミツ",1,2,4],["ピュアなオイル",0,2,3],["リラックスカカオ",0,0,2]]},{"n":"ププリン","t":"フェアリー","sp":"スキル","f":5200,"ir":17,"skr":3.8,"sk":"げんきオールS","cl":8,"el":2,"ec":0,"ings":[["あまいミツ",1,2,4],["ピュアなオイル",0,2,3],["リラックスカカオ",0,0,2]]},{"n":"プラスル","t":"でんき","sp":"スキル","f":2400,"ir":10.3,"skr":4.9,"sk":"プラス (食材ゲットS)","cl":16,"el":0,"ec":-1,"ings":[["めざましコーヒー",1,2,4],["ふといながねぎ",0,2,3],["モーモーミルク",0,0,6]]},{"n":"プリン","t":"フェアリー","sp":"スキル","f":3900,"ir":18.2,"skr":4.3,"sk":"げんきオールS","cl":9,"el":1,"ec":1,"ings":[["あまいミツ",1,2,4],["ピュアなオイル",0,2,3],["リラックスカカオ",0,0,2]]},{"n":"ヘラクロス","t":"むし","sp":"スキル","f":2300,"ir":15.8,"skr":4.7,"sk":"ビルドアップ (料理アシストS)","cl":20,"el":0,"ec":-1,"ings":[["あまいミツ",1,2,4],["あじわいキノコ",0,1,2],["マメミート",0,0,4]]},{"n":"ヘルガー","t":"あく","sp":"きのみ","f":3300,"ir":20.3,"skr":4,"sk":"エナジーチャージM","cl":16,"el":0,"ec":1,"ings":[["げきからハーブ",1,2,4],["あったかジンジャー",0,3,4],["ふといながねぎ",0,0,3]]},{"n":"ベイリーフ","t":"くさ","sp":"きのみ","f":3300,"ir":16.8,"skr":3.8,"sk":"エナジーチャージS (ランダム)","cl":17,"el":1,"ec":1,"ings":[["リラックスカカオ",1,2,4],["あまいミツ",0,3,5],["ふといながねぎ",0,0,3]]},{"n":"ペルシアン","t":"ノーマル","sp":"スキル","f":2800,"ir":16.9,"skr":4.4,"sk":"ゆめのかけらゲットS","cl":12,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["マメミート",0,2,3],null]},{"n":"ホゲータ","t":"ほのお","sp":"食材","f":4200,"ir":25.4,"skr":5.3,"sk":"げんきチャージS","cl":11,"el":2,"ec":0,"ings":[["とくせんリンゴ",2,5,7],["マメミート",0,4,6],["げきからハーブ",0,0,5]]},{"n":"ボスゴドラ","t":"はがね","sp":"食材","f":3000,"ir":28.5,"skr":5.2,"sk":"げんきチャージS","cl":18,"el":0,"ec":2,"ings":[["マメミート",2,5,7],["めざましコーヒー",0,3,5],["ワカクサ大豆",0,0,7]]},{"n":"ボーマンダ","t":"ドラゴン","sp":"きのみ","f":2800,"ir":21.7,"skr":3.4,"sk":"料理パワーアップS","cl":22,"el":0,"ec":2,"ings":[["ほっこりポテト",1,2,4],["あったかジンジャー",0,3,4],["マメミート",0,0,4]]},{"n":"ポッタイシ","t":"みず","sp":"きのみ","f":3700,"ir":16.3,"skr":3.5,"sk":"おてつだいサポートS","cl":15,"el":1,"ec":1,"ings":[["とくせんエッグ",1,2,4],["ふといながねぎ",0,1,2],["あまいミツ",0,0,4]]},{"n":"ポッチャマ","t":"みず","sp":"きのみ","f":4500,"ir":15.9,"skr":2.6,"sk":"おてつだいサポートS","cl":11,"el":2,"ec":0,"ings":[["とくせんエッグ",1,2,4],["ふといながねぎ",0,1,2],["あまいミツ",0,0,4]]},{"n":"マイナン","t":"でんき","sp":"スキル","f":2400,"ir":17.4,"skr":4.9,"sk":"マイナス (料理パワーアップS)","cl":16,"el":0,"ec":-1,"ings":[["あまいミツ",1,2,4],["とくせんエッグ",0,2,3],["モーモーミルク",0,0,4]]},{"n":"マグマラシ","t":"ほのお","sp":"きのみ","f":3000,"ir":21.1,"skr":4.1,"sk":"エナジーチャージS (ランダム)","cl":18,"el":1,"ec":1,"ings":[["あったかジンジャー",1,2,4],["げきからハーブ",0,2,3],["ピュアなオイル",0,0,3]]},{"n":"マスカーニャ","t":"あく","sp":"食材","f":2600,"ir":19,"skr":2.2,"sk":"料理パワーアップS","cl":18,"el":0,"ec":2,"ings":[["ほっこりポテト",2,5,7],["モーモーミルク",0,6,9],["あったかジンジャー",0,0,8]]},{"n":"マダツボミ","t":"くさ","sp":"食材","f":5200,"ir":23.3,"skr":3.9,"sk":"げんきチャージS","cl":8,"el":2,"ec":0,"ings":[["あんみんトマト",2,5,7],["ほっこりポテト",0,4,6],["ふといながねぎ",0,0,4]]},{"n":"マニューラ","t":"あく","sp":"きのみ","f":2700,"ir":25.1,"skr":1.8,"sk":"料理チャンスS","cl":21,"el":0,"ec":1,"ings":[["マメミート",1,2,4],["とくせんエッグ",0,2,3],["ワカクサ大豆",0,0,4]]},{"n":"マネネ","t":"エスパー","sp":"食材","f":4300,"ir":20.1,"skr":3.2,"sk":"ものまね (スキルコピー)","cl":10,"el":1,"ec":0,"ings":[["あんみんトマト",2,5,7],["ほっこりポテト",0,4,6],["ふといながねぎ",0,0,4]]},{"n":"マルノーム","t":"どく","sp":"スキル","f":3500,"ir":21,"skr":7,"sk":"ゆめのかけらゲットS (ランダム)","cl":19,"el":0,"ec":1,"ings":[["ワカクサ大豆",1,2,4],["あじわいキノコ",0,1,2],["あまいミツ",0,0,4]]},{"n":"マンキー","t":"かくとう","sp":"きのみ","f":4200,"ir":19.7,"skr":2.2,"sk":"エナジーチャージS (ランダム)","cl":12,"el":1,"ec":0,"ings":[["マメミート",1,2,4],["あじわいキノコ",0,1,2],["あまいミツ",0,0,4]]},{"n":"ミカルゲ","t":"あく","sp":"食材","f":3500,"ir":19.8,"skr":3.6,"sk":"おてつだいサポートS","cl":27,"el":0,"ec":-1,"ings":[["あじわいキノコ",2,5,7],["ずっしりカボチャ",0,3,5],["ふといながねぎ",0,0,6]]},{"n":"ミズゴロウ","t":"みず","sp":"きのみ","f":4700,"ir":19.2,"skr":2.4,"sk":"料理チャンスS","cl":11,"el":2,"ec":0,"ings":[["ワカクサコーン",1,2,4],["モーモーミルク",0,3,5],["あじわいキノコ",0,0,3]]},{"n":"ミニリュウ","t":"ドラゴン","sp":"食材","f":5000,"ir":25,"skr":2,"sk":"げんきチャージS","cl":9,"el":2,"ec":0,"ings":[["げきからハーブ",2,5,7],["ワカクサコーン",0,4,7],["ピュアなオイル",0,0,8]]},{"n":"ミミッキュ","t":"ゴースト","sp":"スキル","f":2500,"ir":15.3,"skr":3.5,"sk":"ばけのかわ (きのみバースト)","cl":19,"el":0,"ec":-1,"ings":[["とくせんリンゴ",1,2,4],["めざましコーヒー",0,1,2],["あじわいキノコ",0,0,2]]},{"n":"ムシャーナ","t":"エスパー","sp":"きのみ","f":2800,"ir":18.8,"skr":4.1,"sk":"ゆめのかけらゲットS (ランダム)","cl":24,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["あまいミツ",0,2,3],["めざましコーヒー",0,0,2]]},{"n":"ムンナ","t":"エスパー","sp":"きのみ","f":5700,"ir":19.7,"skr":4.3,"sk":"ゆめのかけらゲットS (ランダム)","cl":12,"el":1,"ec":0,"ings":[["モーモーミルク",1,2,4],["あまいミツ",0,2,3],["めざましコーヒー",0,0,2]]},{"n":"メガニウム","t":"くさ","sp":"きのみ","f":2800,"ir":17.5,"skr":4.6,"sk":"エナジーチャージS (ランダム)","cl":20,"el":0,"ec":2,"ings":[["リラックスカカオ",1,2,4],["あまいミツ",0,3,5],["ふといながねぎ",0,0,3]]},{"n":"メタモン","t":"ノーマル","sp":"食材","f":3500,"ir":20.1,"skr":3.6,"sk":"へんしん (スキルコピー)","cl":17,"el":0,"ec":-1,"ings":[["ピュアなオイル",2,5,7],["ふといながねぎ",0,3,5],["おいしいシッポ",0,0,3]]},{"n":"メリープ","t":"でんき","sp":"スキル","f":4600,"ir":12.8,"skr":4.7,"sk":"エナジーチャージM","cl":9,"el":2,"ec":0,"ings":[["げきからハーブ",1,2,4],["とくせんエッグ",0,3,4],null]},{"n":"モウカザル","t":"かくとう","sp":"スキル","f":3100,"ir":11.4,"skr":3.3,"sk":"きのみバースト","cl":14,"el":1,"ec":1,"ings":[["げきからハーブ",1,2,4],["あったかジンジャー",0,3,4],["めざましコーヒー",0,0,3]]},{"n":"モココ","t":"でんき","sp":"スキル","f":3300,"ir":12.7,"skr":4.6,"sk":"エナジーチャージM","cl":11,"el":1,"ec":1,"ings":[["げきからハーブ",1,2,4],["とくせんエッグ",0,3,4],null]},{"n":"ヤドキング","t":"みず","sp":"スキル","f":3400,"ir":16.6,"skr":8.7,"sk":"げんきエールS","cl":17,"el":0,"ec":1,"ings":[["リラックスカカオ",1,2,4],["おいしいシッポ",0,1,2],["あんみんトマト",0,0,5]]},{"n":"ヤドラン","t":"みず","sp":"スキル","f":3800,"ir":19.7,"skr":8,"sk":"げんきエールS","cl":16,"el":0,"ec":1,"ings":[["リラックスカカオ",1,2,4],["おいしいシッポ",0,1,2],["あんみんトマト",0,0,5]]},{"n":"ヤドン","t":"みず","sp":"スキル","f":5700,"ir":15.1,"skr":7.8,"sk":"げんきエールS","cl":9,"el":1,"ec":0,"ings":[["リラックスカカオ",1,2,4],["おいしいシッポ",0,1,2],["あんみんトマト",0,0,5]]},{"n":"ヤミカラス","t":"あく","sp":"スキル","f":3600,"ir":14.1,"skr":6.2,"sk":"きょううん (食材セレクトS)","cl":13,"el":1,"ec":0,"ings":[["めざましコーヒー",1,2,4],["ワカクサ大豆",0,3,6],["げきからハーブ",0,0,4]]},{"n":"ヤミラミ","t":"あく","sp":"スキル","f":3600,"ir":18.8,"skr":6.8,"sk":"ゆめのかけらゲットS (ランダム)","cl":16,"el":0,"ec":-1,"ings":[["ピュアなオイル",1,2,4],["あじわいキノコ",0,2,3],["リラックスカカオ",0,0,3]]},{"n":"ヤルキモノ","t":"ノーマル","sp":"きのみ","f":3200,"ir":20.4,"skr":1.5,"sk":"食材ゲットS","cl":9,"el":1,"ec":1,"ings":[["あんみんトマト",1,2,4],["あまいミツ",0,2,4],["とくせんリンゴ",0,0,4]]},{"n":"ユキカブリ","t":"こおり","sp":"食材","f":5600,"ir":25.1,"skr":4.4,"sk":"エナジーチャージS (ランダム)","cl":10,"el":1,"ec":0,"ings":[["あんみんトマト",2,5,7],["とくせんエッグ",0,4,7],["あじわいキノコ",0,0,5]]},{"n":"ユキノオー","t":"こおり","sp":"食材","f":3000,"ir":25,"skr":4.4,"sk":"エナジーチャージS (ランダム)","cl":21,"el":0,"ec":1,"ings":[["あんみんトマト",2,5,7],["とくせんエッグ",0,4,7],["あじわいキノコ",0,0,5]]},{"n":"ヨーギラス","t":"いわ","sp":"食材","f":4800,"ir":23.8,"skr":4.1,"sk":"げんきチャージS","cl":9,"el":2,"ec":0,"ings":[["あったかジンジャー",2,5,7],["ワカクサ大豆",0,5,8],["マメミート",0,0,8]]},{"n":"ライコウ","t":"でんき","sp":"スキル","f":2100,"ir":19.2,"skr":1.9,"sk":"おてつだいブースト","cl":22,"el":0,"ec":-1,"ings":[["マメミート",1,2,4],["げきからハーブ",0,2,3],["ふといながねぎ",0,0,2]]},{"n":"ライチュウ","t":"でんき","sp":"きのみ","f":2200,"ir":22.4,"skr":3.2,"sk":"エナジーチャージS","cl":21,"el":0,"ec":2,"ings":[["とくせんリンゴ",1,2,4],["あったかジンジャー",0,2,3],["とくせんエッグ",0,0,3]]},{"n":"ラウドボーン","t":"ゴースト","sp":"食材","f":2700,"ir":26.8,"skr":6.2,"sk":"げんきチャージS","cl":19,"el":0,"ec":2,"ings":[["とくせんリンゴ",2,5,7],["マメミート",0,4,6],["げきからハーブ",0,0,5]]},{"n":"ラグラージ","t":"じめん","sp":"きのみ","f":2800,"ir":14.6,"skr":3.4,"sk":"料理チャンスS","cl":20,"el":0,"ec":2,"ings":[["ワカクサコーン",1,2,4],["モーモーミルク",0,3,5],["あじわいキノコ",0,0,3]]},{"n":"ラッキー","t":"ノーマル","sp":"食材","f":3300,"ir":23.6,"skr":2.3,"sk":"げんきオールS","cl":15,"el":1,"ec":1,"ings":[["とくせんエッグ",2,5,7],["ほっこりポテト",0,4,7],["あまいミツ",0,0,8]]},{"n":"ラッタ","t":"ノーマル","sp":"きのみ","f":2950,"ir":23.7,"skr":3,"sk":"げんきチャージS","cl":16,"el":0,"ec":1,"ings":[["とくせんリンゴ",1,2,4],["ワカクサ大豆",0,2,3],["マメミート",0,0,3]]},{"n":"ラティアス","t":"ドラゴン","sp":"スキル","f":2800,"ir":11.4,"skr":4.9,"sk":"いやしのはどう (げんきエールS)","cl":19,"el":0,"ec":-1,"ings":[["あんみんトマト",1,2,4],["ずっしりカボチャ",0,1,2],["あじわいキノコ",0,0,2]]},{"n":"ラティオス","t":"ドラゴン","sp":"スキル","f":2800,"ir":19.8,"skr":3,"sk":"りゅうせいぐん (きのみバースト)","cl":19,"el":0,"ec":-1,"ings":[["あんみんトマト",1,2,4],["とくせんエッグ",0,2,3],["モーモーミルク",0,0,4]]},{"n":"ラルトス","t":"エスパー","sp":"スキル","f":4800,"ir":14.5,"skr":4.3,"sk":"げんきオールS","cl":9,"el":2,"ec":0,"ings":[["とくせんリンゴ",1,2,4],["ワカクサコーン",0,1,2],["ふといながねぎ",0,0,2]]},{"n":"リオル","t":"かくとう","sp":"スキル","f":4200,"ir":12.6,"skr":3.8,"sk":"ゆめのかけらゲットS","cl":9,"el":1,"ec":0,"ings":[["ピュアなオイル",1,2,4],["ほっこりポテト",0,2,4],["とくせんエッグ",0,0,4]]},{"n":"リザード","t":"ほのお","sp":"食材","f":3000,"ir":22.7,"skr":1.6,"sk":"食材ゲットS","cl":15,"el":1,"ec":1,"ings":[["マメミート",2,5,7],["あったかジンジャー",0,4,7],["げきからハーブ",0,0,6]]},{"n":"リザードン","t":"ほのお","sp":"食材","f":2400,"ir":22.4,"skr":1.6,"sk":"食材ゲットS","cl":19,"el":0,"ec":2,"ings":[["マメミート",2,5,7],["あったかジンジャー",0,4,7],["げきからハーブ",0,0,6]]},{"n":"リーフィア","t":"くさ","sp":"スキル","f":3000,"ir":20.5,"skr":6.9,"sk":"げんきエールS","cl":13,"el":0,"ec":1,"ings":[["モーモーミルク",1,2,4],["リラックスカカオ",0,1,2],["マメミート",0,0,3]]},{"n":"ルカリオ","t":"かくとう","sp":"スキル","f":2600,"ir":15,"skr":5.1,"sk":"はどうだん (ゆめのかけらゲットS)","cl":14,"el":0,"ec":1,"ings":[["ピュアなオイル",1,2,4],["ほっこりポテト",0,2,4],["とくせんエッグ",0,0,4]]},{"n":"ルクシオ","t":"でんき","sp":"食材","f":3200,"ir":18.2,"skr":1.8,"sk":"料理パワーアップS","cl":16,"el":1,"ec":1,"ings":[["あんみんトマト",2,5,7],["ピュアなオイル",0,4,7],["めざましコーヒー",0,0,5]]},{"n":"ルチャブル","t":"ひこう","sp":"スキル","f":2400,"ir":19.2,"skr":5.2,"sk":"食材セレクトS","cl":21,"el":0,"ec":-1,"ings":[["げきからハーブ",1,2,4],["あったかジンジャー",0,3,4],["マメミート",0,0,5]]},{"n":"レアコイル","t":"はがね","sp":"スキル","f":4000,"ir":18.2,"skr":6.3,"sk":"料理パワーアップS","cl":11,"el":1,"ec":1,"ings":[["ピュアなオイル",1,2,4],["げきからハーブ",0,2,3],null]},{"n":"レントラー","t":"でんき","sp":"食材","f":2400,"ir":20,"skr":2.3,"sk":"料理パワーアップS","cl":21,"el":0,"ec":2,"ings":[["あんみんトマト",2,5,7],["ピュアなオイル",0,4,7],["めざましコーヒー",0,0,5]]},{"n":"ロコン","t":"ほのお","sp":"きのみ","f":4700,"ir":16.8,"skr":3.2,"sk":"げんきエールS","cl":13,"el":1,"ec":0,"ings":[["ワカクサ大豆",1,2,4],["ワカクサコーン",0,2,3],["ほっこりポテト",0,0,3]]},{"n":"ロコン (アローラ)","t":"こおり","sp":"きのみ","f":5600,"ir":23,"skr":2.8,"sk":"おてつだいサポートS","cl":10,"el":1,"ec":0,"ings":[["ワカクサ大豆",1,2,4],["ワカクサコーン",0,2,3],["ほっこりポテト",0,0,3]]},{"n":"ワカシャモ","t":"かくとう","sp":"きのみ","f":3400,"ir":17,"skr":5.2,"sk":"げんきチャージS","cl":16,"el":1,"ec":1,"ings":[["あじわいキノコ",1,2,4],["ワカクサ大豆",0,4,6],["ピュアなオイル",0,0,5]]},{"n":"ワシボン","t":"ひこう","sp":"スキル","f":3800,"ir":12.5,"skr":3.1,"sk":"きのみバースト","cl":10,"el":1,"ec":0,"ings":[["マメミート",1,2,4],["ワカクサコーン",0,2,3],["めざましコーヒー",0,0,2]]},{"n":"ワニノコ","t":"みず","sp":"きのみ","f":4500,"ir":25.3,"skr":5.2,"sk":"エナジーチャージS (ランダム)","cl":11,"el":2,"ec":0,"ings":[["マメミート",1,2,4],["ピュアなオイル",0,2,3],null]}];
+const RECIPES = [{"n":"とくせんリンゴカレー","cat":"カレー","ings":{"とくせんリンゴ":7},"total":7,"e":748},{"n":"あぶりテールカレー","cat":"カレー","ings":{"おいしいシッポ":8,"げきからハーブ":25},"total":33,"e":7483},{"n":"サンパワートマトカレー","cat":"カレー","ings":{"あんみんトマト":10,"げきからハーブ":5},"total":15,"e":2078},{"n":"ぜったいねむりバターカレー","cat":"カレー","ings":{"ほっこりポテト":18,"あんみんトマト":15,"リラックスカカオ":12,"モーモーミルク":10},"total":55,"e":9010},{"n":"からくちネギもりカレー","cat":"カレー","ings":{"ふといながねぎ":14,"あったかジンジャー":10,"げきからハーブ":8},"total":32,"e":5900},{"n":"キノコのほうしカレー","cat":"カレー","ings":{"あじわいキノコ":14,"ほっこりポテト":9},"total":23,"e":4162},{"n":"おやこあいカレー","cat":"カレー","ings":{"あまいミツ":12,"とくせんリンゴ":11,"とくせんエッグ":8,"ほっこりポテト":4},"total":35,"e":4523},{"n":"満腹チーズバーグカレー","cat":"カレー","ings":{"モーモーミルク":8,"マメミート":8},"total":16,"e":1910},{"n":"ほっこりホワイトシチュー","cat":"カレー","ings":{"モーモーミルク":10,"ほっこりポテト":8,"あじわいキノコ":4},"total":22,"e":3181},{"n":"たんじゅんホワイトシチュー","cat":"カレー","ings":{"モーモーミルク":7},"total":7,"e":814},{"n":"マメバーグカレー","cat":"カレー","ings":{"マメミート":7},"total":7,"e":856},{"n":"ベイビィハニーカレー","cat":"カレー","ings":{"あまいミツ":7},"total":7,"e":839},{"n":"ニンジャカレー","cat":"カレー","ings":{"ワカクサ大豆":24,"マメミート":9,"ふといながねぎ":12,"あじわいキノコ":5},"total":50,"e":9445},{"n":"ひでりカツレツカレー","cat":"カレー","ings":{"マメミート":10,"ピュアなオイル":5},"total":15,"e":1942},{"n":"とけるオムカレー","cat":"カレー","ings":{"とくせんエッグ":10,"あんみんトマト":6},"total":16,"e":2150},{"n":"ビルドアップマメカレー","cat":"カレー","ings":{"ワカクサ大豆":12,"マメミート":6,"げきからハーブ":4,"とくせんエッグ":4},"total":26,"e":3372},{"n":"じゅうなんコーンシチュー","cat":"カレー","ings":{"ワカクサコーン":14,"モーモーミルク":8,"ほっこりポテト":8},"total":30,"e":4670},{"n":"れんごくコーンキーマカレー","cat":"カレー","ings":{"げきからハーブ":27,"マメミート":24,"ワカクサコーン":14,"あったかジンジャー":12},"total":77,"e":13690},{"n":"ピヨピヨパンチ辛口カレー","cat":"カレー","ings":{"めざましコーヒー":11,"げきからハーブ":11,"あまいミツ":11},"total":33,"e":5702},{"n":"めざめるパワーシチュー","cat":"カレー","ings":{"ワカクサ大豆":28,"あんみんトマト":25,"あじわいキノコ":23,"めざましコーヒー":16},"total":92,"e":19061},{"n":"いあいぎりすき焼きカレー","cat":"カレー","ings":{"ふといながねぎ":27,"マメミート":26,"あまいミツ":26,"とくせんエッグ":22},"total":101,"e":20655},{"n":"なりきりバケッチャシチュー","cat":"カレー","ings":{"ずっしりカボチャ":10,"マメミート":16,"ほっこりポテト":18,"あじわいキノコ":25},"total":69,"e":15621},{"n":"しんりょくアボカドグラタン","cat":"カレー","ings":{"つやつやアボカド":22,"ほっこりポテト":20,"モーモーミルク":41,"ピュアなオイル":32},"total":115,"e":24802},{"n":"ワカクサカレーパン","cat":"カレー","ings":{"あったかジンジャー":20,"げきからハーブ":20,"ワカクサ大豆":8,"ピュアなオイル":15},"total":63,"e":10945},{"n":"とびはねるカレーうどん","cat":"カレー","ings":{"あったかジンジャー":39,"あじわいキノコ":31,"げきからハーブ":22,"マメミート":20},"total":112,"e":25539},{"n":"ヤドンテールのペッパーサラダ","cat":"サラダ","ings":{"おいしいシッポ":10,"げきからハーブ":10,"ピュアなオイル":15},"total":35,"e":8169},{"n":"キノコのほうしサラダ","cat":"サラダ","ings":{"あじわいキノコ":17,"あんみんトマト":8,"ピュアなオイル":8},"total":33,"e":5859},{"n":"ゆきかきシーザーサラダ","cat":"サラダ","ings":{"モーモーミルク":10,"マメミート":6},"total":16,"e":1898},{"n":"くいしんぼうポテトサラダ","cat":"サラダ","ings":{"ほっこりポテト":14,"とくせんエッグ":9,"マメミート":7,"とくせんリンゴ":6},"total":36,"e":5040},{"n":"うるおいとうふサラダ","cat":"サラダ","ings":{"ワカクサ大豆":15,"あんみんトマト":9},"total":24,"e":3113},{"n":"ばかぢからワイルドサラダ","cat":"サラダ","ings":{"マメミート":9,"あったかジンジャー":6,"とくせんエッグ":5,"ほっこりポテト":3},"total":23,"e":3046},{"n":"マメハムサラダ","cat":"サラダ","ings":{"マメミート":8},"total":8,"e":978},{"n":"あんみんトマトサラダ","cat":"サラダ","ings":{"あんみんトマト":8},"total":8,"e":1045},{"n":"モーモーカプレーゼ","cat":"サラダ","ings":{"モーモーミルク":12,"あんみんトマト":6,"ピュアなオイル":5},"total":23,"e":2942},{"n":"ムラっけチョコミートサラダ","cat":"サラダ","ings":{"リラックスカカオ":14,"マメミート":9},"total":23,"e":3665},{"n":"オーバーヒートサラダ","cat":"サラダ","ings":{"げきからハーブ":17,"あったかジンジャー":10,"あんみんトマト":8},"total":35,"e":5225},{"n":"とくせんリンゴサラダ","cat":"サラダ","ings":{"とくせんリンゴ":8},"total":8,"e":855},{"n":"めんえきねぎサラダ","cat":"サラダ","ings":{"ふといながねぎ":10,"あったかジンジャー":5},"total":15,"e":2845},{"n":"メロメロりんごのチーズサラダ","cat":"サラダ","ings":{"とくせんリンゴ":15,"モーモーミルク":5,"ピュアなオイル":3},"total":23,"e":2655},{"n":"ニンジャサラダ","cat":"サラダ","ings":{"ふといながねぎ":15,"ワカクサ大豆":19,"あじわいキノコ":12,"あったかジンジャー":11},"total":57,"e":11659},{"n":"ねっぷうとうふサラダ","cat":"サラダ","ings":{"ワカクサ大豆":10,"げきからハーブ":6},"total":16,"e":2114},{"n":"ワカクササラダ","cat":"サラダ","ings":{"ピュアなオイル":22,"ワカクサコーン":17,"あんみんトマト":14,"ほっこりポテト":9},"total":62,"e":11393},{"n":"めいそうスイートサラダ","cat":"サラダ","ings":{"とくせんリンゴ":21,"あまいミツ":16,"ワカクサコーン":12},"total":49,"e":7675},{"n":"みだれづきコーンサラダ","cat":"サラダ","ings":{"ワカクサコーン":9,"ピュアなオイル":8},"total":17,"e":2785},{"n":"クロスチョップドサラダ","cat":"サラダ","ings":{"とくせんエッグ":20,"マメミート":15,"ワカクサコーン":11,"あんみんトマト":10},"total":56,"e":8755},{"n":"まけんきコーヒーサラダ","cat":"サラダ","ings":{"めざましコーヒー":28,"マメミート":28,"ピュアなオイル":22,"ほっこりポテト":22},"total":100,"e":20218},{"n":"はなふぶきミモザサラダ","cat":"サラダ","ings":{"とくせんエッグ":25,"ピュアなオイル":17,"ほっこりポテト":15,"マメミート":12},"total":69,"e":11881},{"n":"りんごさんヨーグルトサラダ","cat":"サラダ","ings":{"とくせんエッグ":35,"とくせんリンゴ":28,"あんみんトマト":23,"モーモーミルク":18},"total":104,"e":19293},{"n":"くだけるアボカドサラダ","cat":"サラダ","ings":{"つやつやアボカド":14,"ワカクサ大豆":18,"ピュアなオイル":10},"total":42,"e":7125},{"n":"じならしワカモレチップス","cat":"サラダ","ings":{"つやつやアボカド":28,"ワカクサコーン":25,"げきからハーブ":30,"ワカクサ大豆":22},"total":105,"e":25162},{"n":"ごろごろねっとうサラダ","cat":"サラダ","ings":{"ずっしりカボチャ":20,"ほっこりポテト":30,"ワカクサコーン":18,"あじわいキノコ":27},"total":95,"e":25356},{"n":"じゅくせいスイートポテト","cat":"デザート","ings":{"ほっこりポテト":9,"モーモーミルク":5},"total":14,"e":1907},{"n":"ふくつのジンジャークッキー","cat":"デザート","ings":{"あまいミツ":14,"あったかジンジャー":12,"リラックスカカオ":5,"とくせんエッグ":4},"total":35,"e":4921},{"n":"とくせんリンゴジュース","cat":"デザート","ings":{"とくせんリンゴ":8},"total":8,"e":855},{"n":"クラフトサイコソーダ","cat":"デザート","ings":{"あまいミツ":9},"total":9,"e":1079},{"n":"ひのこのジンジャーティー","cat":"デザート","ings":{"あったかジンジャー":9,"とくせんリンゴ":7},"total":16,"e":1913},{"n":"プリンのプリンアラモード","cat":"デザート","ings":{"あまいミツ":20,"とくせんエッグ":15,"モーモーミルク":10,"とくせんリンゴ":10},"total":55,"e":7594},{"n":"あくまのキッスフルーツオレ","cat":"デザート","ings":{"とくせんリンゴ":11,"モーモーミルク":9,"あまいミツ":7,"リラックスカカオ":8},"total":35,"e":4734},{"n":"ねがいごとアップルパイ","cat":"デザート","ings":{"とくせんリンゴ":12,"モーモーミルク":4},"total":16,"e":1748},{"n":"ネロリのデトックスティー","cat":"デザート","ings":{"あったかジンジャー":11,"とくせんリンゴ":15,"あじわいキノコ":9},"total":35,"e":5065},{"n":"あまいかおりチョコケーキ","cat":"デザート","ings":{"あまいミツ":9,"リラックスカカオ":8,"モーモーミルク":7},"total":24,"e":3378},{"n":"モーモーホットミルク","cat":"デザート","ings":{"モーモーミルク":7},"total":7,"e":814},{"n":"かるわざソイケーキ","cat":"デザート","ings":{"とくせんエッグ":8,"ワカクサ大豆":7},"total":15,"e":1924},{"n":"はりきりプロテインスムージー","cat":"デザート","ings":{"ワカクサ大豆":15,"リラックスカカオ":8},"total":23,"e":3263},{"n":"マイペースやさいジュース","cat":"デザート","ings":{"あんみんトマト":9,"とくせんリンゴ":7},"total":16,"e":1924},{"n":"おおきいマラサダ","cat":"デザート","ings":{"ピュアなオイル":10,"モーモーミルク":7,"あまいミツ":6},"total":23,"e":3015},{"n":"ちからもちソイドーナッツ","cat":"デザート","ings":{"ピュアなオイル":12,"ワカクサ大豆":16,"リラックスカカオ":7},"total":35,"e":5547},{"n":"だいばくはつポップコーン","cat":"デザート","ings":{"ワカクサコーン":15,"ピュアなオイル":14,"モーモーミルク":7},"total":36,"e":6048},{"n":"おちゃかいコーンスコーン","cat":"デザート","ings":{"とくせんリンゴ":20,"あったかジンジャー":20,"ワカクサコーン":18,"モーモーミルク":9},"total":67,"e":10925},{"n":"はなびらのまいチョコタルト","cat":"デザート","ings":{"リラックスカカオ":11,"とくせんリンゴ":11},"total":22,"e":3314},{"n":"フラワーギフトマカロン","cat":"デザート","ings":{"リラックスカカオ":25,"とくせんエッグ":25,"あまいミツ":17,"モーモーミルク":10},"total":77,"e":13834},{"n":"はやおきコーヒーゼリー","cat":"デザート","ings":{"めざましコーヒー":16,"モーモーミルク":14,"あまいミツ":12},"total":42,"e":6793},{"n":"スパークスパイスコーラ","cat":"デザート","ings":{"とくせんリンゴ":35,"あったかジンジャー":20,"ふといながねぎ":20,"めざましコーヒー":12},"total":87,"e":17494},{"n":"かたやぶりコーンティラミス","cat":"デザート","ings":{"めざましコーヒー":14,"ワカクサコーン":14,"モーモーミルク":12},"total":40,"e":7125},{"n":"ドオーのエクレア","cat":"デザート","ings":{"リラックスカカオ":30,"モーモーミルク":26,"めざましコーヒー":24,"あまいミツ":22},"total":102,"e":20885},{"n":"ドキドキこわいかおパンケーキ","cat":"デザート","ings":{"ずっしりカボチャ":18,"とくせんエッグ":24,"あまいミツ":32,"あんみんトマト":29},"total":103,"e":24354},{"n":"グラスミキサースムージー","cat":"デザート","ings":{"つやつやアボカド":18,"あんみんトマト":16,"モーモーミルク":14},"total":48,"e":8165},{"n":"みつあつめチョコワッフル","cat":"デザート","ings":{"あまいミツ":38,"ワカクサコーン":28,"ピュアなオイル":28,"リラックスカカオ":21},"total":115,"e":25484}];
+const FIELDS = [{"n":"ワカクサ本島","types":null,"ex":null},{"n":"シアンの砂浜","types":["みず","フェアリー","ひこう"],"ex":null},{"n":"トープ洞窟","types":["ほのお","じめん","いわ"],"ex":null},{"n":"ウノハナ雪原","types":["こおり","ノーマル","あく"],"ex":null},{"n":"ラピスラズリ湖畔","types":["くさ","エスパー","かくとう"],"ex":null},{"n":"ゴールド旧発電所","types":["でんき","ゴースト","はがね"],"ex":null},{"n":"アンバー渓谷","types":["どく","むし","ドラゴン"],"ex":null},{"n":"ワカクサ本島 EX","types":null,"ex":"ggex"},{"n":"シアンの砂浜 EX","types":["みず","フェアリー","ひこう"],"ex":"cbex"}];
+const BERRY_BY_TYPE = {"ノーマル":"キーのみ","ほのお":"ヒメリのみ","みず":"オレンのみ","でんき":"ウブのみ","くさ":"ドリのみ","こおり":"チーゴのみ","かくとう":"クラボのみ","どく":"カゴのみ","じめん":"フィラのみ","ひこう":"シーヤのみ","エスパー":"マゴのみ","むし":"ラムのみ","いわ":"オボンのみ","ゴースト":"ブリーのみ","ドラゴン":"ヤチェのみ","あく":"ウイのみ","はがね":"ベリブのみ","フェアリー":"モモンのみ"};
+const ING_LIST = ["あじわいキノコ","あったかジンジャー","あまいミツ","あんみんトマト","おいしいシッポ","げきからハーブ","ずっしりカボチャ","つやつやアボカド","とくせんエッグ","とくせんリンゴ","ふといながねぎ","ほっこりポテト","めざましコーヒー","ピュアなオイル","マメミート","モーモーミルク","リラックスカカオ","ワカクサコーン","ワカクサ大豆"];
+const POT_SIZES = [21,23,25,27,29,31,33,36,39,42,45,48,51,54,57,60,63,66,69,72,75,78,81];
+const COOKING_UP = {"料理パワーアップS":[7,10,12,17,22,27,31],"マイナス (料理パワーアップS)":[5,7,9,12,16,20,24]};
+const TASTY_CHANCE = {"料理チャンスS":[4,5,6,7,8,10]};
+const INGREDIENT_MAGNET = {"食材ゲットS":[6,8,11,14,17,21,24],"プラス (食材ゲットS)":[5,7,9,11,13,16,18],"プレゼント (食材ゲットS)":[4,6,8,10,12,15,17]};
+const PLUS_BONUS_COUNT = 14;
+const ING_KINDS = 19;
+const BAG = {"perEvolution":5,"perInventorySub":6,"ribbon":[0,1,3,6,8],"ticketMul":1.2};
+const ENERGY = {"rate":[[80,0.45],[60,0.52],[40,0.58],[1,0.66],[-1,1.0]],"decayPer10min":1,"wakeMax":100,"wakeMaxWithBonus":105,"recoveryBonusPer":0.14,"sleepFullMinutes":510};
+const HEALERS = {"げんきオールS":{"v":[5,7,9,11,15,18],"target":"all"},"みかづきのいのり (げんきオールS)":{"v":[3,4,5,7,9,11],"target":"all"},"きのみジュース (げんきオールS)":{"v":[5,7,9,11,15,18],"target":"all"},"げんきエールS":{"v":[12,15,20,25,33,44],"target":"one"},"ほっぺすりすり (げんきエールS)":{"v":[9,12,16,20,27,35],"target":"one"},"いやしのはどう (げんきエールS)":{"v":[6,8,10,13,17,22],"target":"one"},"げんきチャージS":{"v":[12,16,21,27,34,43],"target":"self"},"つきのひかり (げんきチャージS)":{"v":[12,16,21,27,34,43],"target":"self"}};
+const MINUS_CHEER = [12,15,20,25,33,44];
+const GREAT_SUCCESS = {"weekday":{"rate":10,"mult":2},"sunday":{"rate":30,"mult":3},"chanceMax":70,"sundayPotMul":2};
+const NATURES = {"てれや":{"speed":0,"ing":0,"skill":0,"energy":0},"がんばりや":{"speed":0,"ing":0,"skill":0,"energy":0},"すなお":{"speed":0,"ing":0,"skill":0,"energy":0},"きまぐれ":{"speed":0,"ing":0,"skill":0,"energy":0},"まじめ":{"speed":0,"ing":0,"skill":0,"energy":0},"ずぶとい":{"speed":-1,"ing":0,"skill":0,"energy":1},"わんぱく":{"speed":0,"ing":-1,"skill":0,"energy":1},"のうてんき":{"speed":0,"ing":0,"skill":-1,"energy":1},"のんき":{"speed":0,"ing":0,"skill":0,"energy":1},"おくびょう":{"speed":-1,"ing":0,"skill":0,"energy":0},"せっかち":{"speed":0,"ing":0,"skill":0,"energy":-1},"ようき":{"speed":0,"ing":-1,"skill":0,"energy":0},"むじゃき":{"speed":0,"ing":0,"skill":-1,"energy":0},"さみしがり":{"speed":1,"ing":0,"skill":0,"energy":-1},"いじっぱり":{"speed":1,"ing":-1,"skill":0,"energy":0},"やんちゃ":{"speed":1,"ing":0,"skill":-1,"energy":0},"ゆうかん":{"speed":1,"ing":0,"skill":0,"energy":0},"おだやか":{"speed":-1,"ing":0,"skill":1,"energy":0},"おとなしい":{"speed":0,"ing":0,"skill":1,"energy":-1},"しんちょう":{"speed":0,"ing":-1,"skill":1,"energy":0},"なまいき":{"speed":0,"ing":0,"skill":1,"energy":0},"ひかえめ":{"speed":-1,"ing":1,"skill":0,"energy":0},"おっとり":{"speed":0,"ing":1,"skill":0,"energy":-1},"うっかりや":{"speed":0,"ing":1,"skill":-1,"energy":0},"れいせい":{"speed":0,"ing":1,"skill":0,"energy":0}};
+const SUBSKILLS = {"おてつだいスピードS":["speed",1],"おてつだいスピードM":["speed",2],"食材確率アップS":["ing",1],"食材確率アップM":["ing",2],"スキル確率アップS":["skill",1],"スキル確率アップM":["skill",2],"おてつだいボーナス":["helpbonus",1],"きのみの数S":["berry",1],"げんき回復ボーナス":["recovery",1],"最大所持数アップS":["inventory",1],"最大所持数アップM":["inventory",2],"最大所持数アップL":["inventory",3]};
+const SUBSKILL_LEVELS = [10,25,50,70,80];
+const EX_BONUS = {"ggex":{"main":0.1,"non":0.15},"cbex":{"main":0.2,"non":0.35}};
+const EX_EFFECT = {"berry":{"label":"きのみエナジー 2.4倍","berryMul":2.4},"ing":{"label":"食材 +1個（食材とくいは平均+1.5）","ing":1,"ingExtra":0.5},"skill":{"label":"スキル確率 1.25倍","skillMul":1.25}};
+const EX_MAIN_SKILL_LEVEL_BONUS = 1;
+const RECIPE_LEVEL_BONUS = {"1":0,"2":2,"3":4,"4":6,"5":8,"6":9,"7":11,"8":13,"9":16,"10":18,"11":19,"12":21,"13":23,"14":24,"15":26,"16":28,"17":30,"18":31,"19":33,"20":35,"21":37,"22":40,"23":42,"24":45,"25":47,"26":50,"27":52,"28":55,"29":58,"30":61,"31":64,"32":67,"33":70,"34":74,"35":77,"36":81,"37":84,"38":88,"39":92,"40":96,"41":100,"42":104,"43":108,"44":113,"45":117,"46":122,"47":127,"48":132,"49":137,"50":142,"51":148,"52":153,"53":159,"54":165,"55":171,"56":177,"57":183,"58":190,"59":197,"60":203,"61":209,"62":215,"63":221,"64":227,"65":234,"66":239,"67":243,"68":248,"69":252,"70":258};
+
+/* きのみの基礎エナジー（タイプごと）。出典: pokesleep-tool の Berry.ts */
+const BERRY_BASE = {
+  "ノーマル":28,"ほのお":27,"みず":31,"でんき":25,"くさ":30,"こおり":32,
+  "かくとう":27,"どく":32,"じめん":29,"ひこう":24,"エスパー":26,"むし":24,
+  "いわ":30,"ゴースト":26,"ドラゴン":35,"あく":31,"はがね":33,"フェアリー":26
+};
+
+/* 食材構成の選択肢。A=食材1、B=食材2、C=食材3 */
+const COMBOS = ["AAA","AAB","AAC","ABA","ABB","ABC"];
+
+const POKE_BY_NAME = {};
+for (const p of POKEMON) { POKE_BY_NAME[p.n] = p; }
+
+/* ====== 画面の状態 ====== */
+const state = {
+  fieldIndex: 0,
+  wakakusaTypes: ["みず","くさ","ほのお"],   /* 好みが自由に決まるフィールド用 */
+  favMain: 0,                                /* 3つのうち、どれがメインの好みか */
+  exEffect: "berry",                         /* EXの週替わりバフ */
+  cat: "サラダ",
+  mons: []
+};
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ====== 1. フィールド ====== */
+function buildFieldSelect(){
+  const sel = $("field");
+  sel.innerHTML = FIELDS.map((f,i) => `<option value="${i}">${esc(f.n)}</option>`).join("");
+  sel.value = String(state.fieldIndex);
+  sel.onchange = () => { state.fieldIndex = Number(sel.value); renderBerries(); render(); };
+}
+
+/* いま好みになっているタイプ3つを返す。EXフィールドでは先頭がメインの好み */
+function favTypes(){
+  const f = FIELDS[state.fieldIndex];
+  const base = (f.types === null) ? state.wakakusaTypes : f.types;
+  if (!f.ex) return base;
+  const m = Math.min(Math.max(state.favMain, 0), base.length - 1);
+  return [base[m]].concat(base.filter((_, i) => i !== m));
+}
+
+/* EXフィールドのおてつだいスピード補正。
+   メインの好みのきのみは速くなり、好みでないきのみは遅くなる */
+function exFactor(p){
+  const f = FIELDS[state.fieldIndex];
+  if (!f.ex) return 1;
+  const b = EX_BONUS[f.ex];
+  const favs = favTypes();
+  if (favs[0] === p.t) return 1 - b.main;
+  if (favs.indexOf(p.t) !== -1) return 1;
+  return 1 + b.non;
+}
+
+function renderBerries(){
+  const area = $("berryArea");
+  const f = FIELDS[state.fieldIndex];
+  const types = Object.keys(BERRY_BY_TYPE);
+  const base = (f.types === null) ? state.wakakusaTypes : f.types;
+  let html = "";
+
+  if (f.types === null){
+    /* 好みのきのみが毎週ランダムなので、自分で3つ選ぶ */
+    const opts = t => types.map(x =>
+      `<option value="${esc(x)}"${x===t?" selected":""}>${esc(BERRY_BY_TYPE[x])}（${esc(x)}）</option>`).join("");
+    html += '<div class="row" style="margin-top:8px">' +
+      base.map((t,i) =>
+        `<div><label>好みのきのみ ${i+1}</label><select data-wk="${i}">${opts(t)}</select></div>`).join("") +
+      '</div>';
+  } else {
+    html += '<div class="berries">' +
+      base.map(t => `<span class="berry">${esc(BERRY_BY_TYPE[t])}（${esc(t)}）</span>`).join("") +
+      '</div>';
+  }
+
+  if (f.ex){
+    /* EXフィールドは「メインの好みのきのみ」だけ特別に速くなる */
+    const b = EX_BONUS[f.ex];
+    html += '<div class="row" style="margin-top:8px"><div>' +
+      '<label>メインの好みのきのみ（どれがメイン？）</label>' +
+      '<select id="favMain">' +
+      base.map((t,i) =>
+        `<option value="${i}"${i===state.favMain?" selected":""}>${esc(BERRY_BY_TYPE[t])}（${esc(t)}）</option>`).join("") +
+      '</select></div></div>' +
+      '<div class="row" style="margin-top:8px"><div>' +
+      '<label>今週のEXのバフ</label>' +
+      '<select id="exEffect">' +
+      Object.keys(EX_EFFECT).map(k =>
+        `<option value="${k}"${k===state.exEffect?" selected":""}>${esc(EX_EFFECT[k].label)}</option>`).join("") +
+      '</select></div></div>' +
+      `<p class="hint">EXフィールドでは、<b>好みのきのみ</b>を持つポケモンに
+       上のバフのうち1つがかかります（毎週変わるので選んでください）。
+       <b>メインの好みのきのみ</b>のポケモンは、それに加えて<b>メインスキルのレベルが+1</b>されます。<br>
+       また、<b>メインの好みのきのみ</b>のポケモンは
+おてつだいが <b>${Math.round(b.main*100)}%速く</b>なり、
+       <b>好みでないきのみ</b>のポケモンは <b>${Math.round(b.non*100)}%遅く</b>なります。
+       残りの2つは「サブの好み」で、エナジー2倍だけがつきます。</p>`;
+  }
+
+  area.innerHTML = html;
+
+  area.querySelectorAll("select[data-wk]").forEach(sel => {
+    sel.onchange = () => {
+      state.wakakusaTypes[Number(sel.dataset.wk)] = sel.value;
+      renderBerries(); render();
+    };
+  });
+  const mainSel = $("favMain");
+  if (mainSel) mainSel.onchange = () => { state.favMain = Number(mainSel.value); renderBerries(); render(); };
+  const exSel = $("exEffect");
+  if (exSel) exSel.onchange = () => { state.exEffect = exSel.value; render(); };
+}
+
+/* ====== 2. カテゴリ ====== */
+function buildCats(){
+  const info = {
+    "カレー":"カレー・シチュー", "サラダ":"サラダ", "デザート":"デザート・ドリンク"
+  };
+  $("cats").innerHTML = Object.keys(info).map(c => {
+    const n = RECIPES.filter(r => r.cat === c).length;
+    return `<div class="cat${c===state.cat?" on":""}" data-cat="${c}">${esc(info[c])}<small>${n}品</small></div>`;
+  }).join("");
+  $("cats").querySelectorAll(".cat").forEach(el => {
+    el.onclick = () => {
+      state.cat = el.dataset.cat; buildCats();
+      if ($("recipeLvGrid")) renderRecipeLvGrid();
+      render();
+    };
+  });
+}
+
+/* ====== 3. 手持ちポケモン ====== */
+function addMon(){
+  state.mons.push({
+    name:"", level:50, combo:"AAA",
+    natureSpeed:0,   /* 1=上がる, -1=下がる, 0=関係なし */
+    subSpeed:0,      /* おてつだいスピードのサブスキルの数 0〜4 */
+    natureIng:0,     /* 食材確率の性格 */
+    subIng:0,        /* 食材確率アップのサブスキルの数 0〜4 */
+    natureSkill:0,   /* メインスキル発生確率の性格 */
+    natureEnergy:0,  /* げんき回復量の性格 */
+    recoveryBonus:0, /* げんき回復ボーナス（サブスキル）の数 */
+    inventoryUp:0,   /* 最大所持数アップ（S=1/M=2/L=3）の合計 */
+    subSkill:0,      /* スキル発生確率アップのサブスキルの数 0〜4 */
+    skillLevel:6,    /* メインスキルのレベル（料理パワーアップのときだけ使う） */
+    use:true,        /* チームに入れるか */
+    ribbon:0,        /* 寝顔リボン 0〜4 */
+    helpBonus:false, /* おてつだいボーナスを持っているか */
+    berryS:false,    /* きのみの数S を持っているか */
+    nickname:""
+  });
+  listUi.open = state.mons.length - 1;
+  listUi.onlyUse = false;
+  listUi.search = "";
+  const sb = $("monSearch"); if (sb) sb.value = "";
+  const ou = $("onlyUse"); if (ou) ou.checked = false;
+  renderMons(); render();
+}
+
+/* ====== 個体値チェッカーのCSV／TSVを取り込む ====== */
+/* 1行ぶんを、区切り文字で分ける。"" で囲まれた中の区切りは無視する */
+function splitLine(line, sep){
+  const out = []; let cur = ""; let quoted = false;
+  for (let i = 0; i < line.length; i++){
+    const c = line[i];
+    if (quoted){
+      if (c === '"'){
+        if (line[i+1] === '"'){ cur += '"'; i++; }   /* "" は "1つぶん */
+        else quoted = false;
+      } else cur += c;
+    } else {
+      if (c === '"') quoted = true;
+      else if (c === sep){ out.push(cur); cur = ""; }
+      else cur += c;
+    }
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+/* 食材3つの名前から、AAA・ABC などの食材構成を組み立てる */
+function comboFromIngredients(p, names, level){
+  const open = level >= 60 ? 3 : level >= 30 ? 2 : 1;
+  const letters = ["A","B","C"];
+  let combo = "";
+  for (let s = 0; s < 3; s++){
+    if (s >= open){ combo += "A"; continue; }        /* まだ開いていない枠は仮に A */
+    const want = names[s];
+    let found = -1;
+    for (let k = 0; k < 3; k++){
+      if (p.ings[k] && p.ings[k][0] === want){ found = k; break; }
+    }
+    if (found === -1) return null;                   /* 名前が合わない */
+    if (s === 0 && found !== 0) return null;         /* 1枠目は必ず食材A */
+    if (s === 1 && found > 1)  return null;          /* 2枠目は A か B だけ */
+    combo += letters[found];
+  }
+  return combo;
+}
+
+/* 貼り付けられた文字を読んで、手持ちの一覧に入れる */
+function importCsv(){
+  const text = $("csv").value.trim();
+  const msg = $("importMsg");
+  if (text === ""){
+    msg.innerHTML = '<div class="note">枠が空っぽです。個体値チェッカーでコピーした文字を貼り付けてください。</div>';
+    return;
+  }
+
+  const lines = text.split(/\r?\n/).filter(x => x.trim() !== "");
+  /* タブが多ければ TSV、そうでなければ CSV とみなす */
+  const sep = (lines[0].split("\t").length > lines[0].split(",").length) ? "\t" : ",";
+
+  const added = [];
+  const skipped = [];
+  const RIBBON_HOURS = [0, 200, 500, 1000, 2000];
+
+  for (const line of lines){
+    const c = splitLine(line, sep);
+    if (c.length < 9) continue;                       /* 列が足りない行は飛ばす */
+
+    const name = c[1];
+    const p = POKE_BY_NAME[name];
+    if (!p){
+      /* 見出しの行は静かに飛ばす。それ以外は「読めなかった」として数える */
+      if (name !== "" && c[2] !== "" && !isNaN(Number(c[2]))) skipped.push(name);
+      continue;
+    }
+
+    const level = Math.max(1, Math.min(100, Number(c[2]) || 1));
+    const combo = comboFromIngredients(p, [c[4], c[5], c[6]], level);
+    if (combo === null){ skipped.push(name + "（食材が合いません）"); continue; }
+
+    /* せいかく */
+    const nat = NATURES[c[8]] || { speed:0, ing:0, skill:0, energy:0 };
+
+    /* サブスキル。レベルが足りていないものは効かない */
+    let subSpeed = 0, subIng = 0, subSkill = 0, helpBonus = false, berryS = false;
+    let recoveryBonus = 0, inventoryUp = 0;
+    for (let k = 0; k < 5; k++){
+      if (level < SUBSKILL_LEVELS[k]) break;
+      const s = SUBSKILLS[c[9 + k]];
+      if (!s) continue;
+      if (s[0] === "speed") subSpeed += s[1];
+      else if (s[0] === "ing") subIng += s[1];
+      else if (s[0] === "skill") subSkill += s[1];
+      else if (s[0] === "helpbonus") helpBonus = true;
+      else if (s[0] === "berry") berryS = true;
+      else if (s[0] === "recovery") recoveryBonus += 1;
+      else if (s[0] === "inventory") inventoryUp += s[1];
+    }
+
+    /* 寝顔リボン。CSVには時間（0/200/500/1000/2000）で入っている */
+    const hours = Number(c[14]) || 0;
+    let ribbon = 0;
+    for (let k = 0; k < RIBBON_HOURS.length; k++){
+      if (hours >= RIBBON_HOURS[k]) ribbon = k;
+    }
+
+    added.push({
+      use: added.length < 5,
+      name, level, combo,
+      nickname: c[0],
+      natureSpeed: nat.speed, subSpeed,
+      natureIng: nat.ing, subIng,
+      natureSkill: nat.skill, subSkill,
+      natureEnergy: nat.energy, recoveryBonus, inventoryUp,
+      skillLevel: Math.max(1, Math.min(7, Number(c[3]) || 6)),
+      ribbon, helpBonus, berryS
+    });
+  }
+
+  if (added.length === 0){
+    msg.innerHTML = `<div class="note">1匹も読み取れませんでした。
+      個体値チェッカーの「ボックス」→「エクスポート」で出た文字を、
+      そのまま貼り付けてください。</div>`;
+    return;
+  }
+
+  state.mons = added;
+  listUi.open = null;
+  listUi.search = "";
+  listUi.onlyUse = false;
+  const sb = $("monSearch"); if (sb) sb.value = "";
+  const ou = $("onlyUse"); if (ou) ou.checked = false;
+  renderMons(); render();
+
+  let m = `<div class="note" style="border-left-color:var(--good)">
+    <b>${added.length}匹を取り込みました。</b>`;
+  if (skipped.length > 0){
+    m += `<br>読めなかったもの ${skipped.length}件：${esc(skipped.slice(0,5).join("、"))}`;
+    if (skipped.length > 5) m += " ほか";
+  }
+  m += `<br>チームに入れる子だけ残して、あとは「けす」で消してください。</div>`;
+  msg.innerHTML = m;
+}
+
+/* ====== 手持ちの一覧 ======
+   ボックスを丸ごと取り込むと何十匹も並ぶので、
+   ふだんは1行ずつの小さい表示にして、開いたときだけ細かく直せるようにする。 */
+
+/* 一覧のしぼりこみ・並べ替えの状態 */
+const listUi = { search: "", sort: "import", onlyUse: false, open: null };
+
+/* 表示する順番（state.mons の番号の配列）を作る */
+function visibleRows(){
+  const q = listUi.search.trim();
+  let rows = state.mons.map((m, i) => i);
+
+  if (listUi.onlyUse) rows = rows.filter(i => state.mons[i].use);
+  if (q !== ""){
+    rows = rows.filter(i => {
+      const m = state.mons[i];
+      return (m.name || "").indexOf(q) !== -1 || (m.nickname || "").indexOf(q) !== -1;
+    });
+  }
+
+  const berryOf = i => {
+    const st = perDayStats(state.mons[i], 0);
+    return st ? st.berry : -1;
+  };
+  if (listUi.sort === "name")  rows.sort((a,b) => (state.mons[a].name||"").localeCompare(state.mons[b].name||"", "ja"));
+  if (listUi.sort === "level") rows.sort((a,b) => state.mons[b].level - state.mons[a].level);
+  if (listUi.sort === "berry") rows.sort((a,b) => berryOf(b) - berryOf(a));
+  return rows;
+}
+
+function renderMons(){
+  const box = $("mons");
+  if (state.mons.length === 0){
+    box.innerHTML = '<p class="empty">まだ1匹も入っていません。上から取り込むか、下のボタンで追加してください。</p>';
+    $("listBar").style.display = "none";
+    renderCount();
+    return;
+  }
+  /* 5匹より多いときだけ、しぼりこみの道具を出す */
+  $("listBar").style.display = state.mons.length > 5 ? "" : "none";
+
+  const rows = visibleRows();
+  if (rows.length === 0){
+    box.innerHTML = '<p class="empty">条件に合うポケモンがいません。しぼりこみを消してください。</p>';
+    renderCount();
+    return;
+  }
+
+  const comboOpt = c => COMBOS.map(x =>
+    `<option value="${x}"${x===c?" selected":""}>${x}</option>`).join("");
+  const pick = (v,list) => list.map(([val,lab]) =>
+    `<option value="${val}"${String(val)===String(v)?" selected":""}>${lab}</option>`).join("");
+
+  box.innerHTML = rows.map(i => {
+    const m = state.mons[i];
+    const open = (listUi.open === i);
+    const p = POKE_BY_NAME[m.name];
+    const title = m.nickname ? `${esc(m.nickname)}<span class="sub">${esc(m.name)}</span>` : esc(m.name || "（未入力）");
+    const marks = (m.ribbon ? "🎀" : "") + (m.helpBonus ? "🤝" : "")
+                + (p && COOKING_UP[p.sk] ? "🍲" : "") + (p && TASTY_CHANCE[p.sk] ? "✨" : "");
+
+    let body = "";
+    if (open){
+      body = `<div class="body">
+        <div class="row">
+          <div style="flex:2 1 190px">
+            <label>ポケモン</label>
+            <input type="text" list="pokelist" data-f="name" value="${esc(m.name)}"
+                   placeholder="名前を入れる（例: ライチュウ）">
+          </div>
+          <div style="flex:0 1 90px">
+            <label>レベル</label>
+            <input type="number" data-f="level" value="${m.level}" min="1" max="100">
+          </div>
+          <div style="flex:0 1 100px">
+            <label>食材構成</label>
+            <select data-f="combo">${comboOpt(m.combo)}</select>
+          </div>
+          ${isCookingUp(m.name) ? `<div style="flex:0 1 110px">
+            <label>スキルLv</label>
+            <select data-f="skillLevel">${pick(m.skillLevel,[1,2,3,4,5,6,7].map(v => [v,"Lv"+v]))}</select>
+          </div>` : ""}
+        </div>
+        <div class="made" data-made="${i}"></div>
+        <div class="row">
+          <div><label>性格（おてつだいスピード）</label><select data-f="natureSpeed">${
+            pick(m.natureSpeed,[[0,"関係なし"],[1,"上がる（×0.9）"],[-1,"下がる（×1.075）"]])}</select></div>
+          <div><label>おてつだいスピードのサブスキル</label><select data-f="subSpeed">${
+            pick(m.subSpeed,[[0,"なし"],[1,"S を1つ"],[2,"M を1つ / S を2つ"],[3,"M＋S"],[4,"M を2つ"]])}</select></div>
+        </div>
+        <div class="row">
+          <div><label>性格（食材おてつだい確率）</label><select data-f="natureIng">${
+            pick(m.natureIng,[[0,"関係なし"],[1,"上がる（×1.2）"],[-1,"下がる（×0.8）"]])}</select></div>
+          <div><label>食材確率アップのサブスキル</label><select data-f="subIng">${
+            pick(m.subIng,[[0,"なし"],[1,"S を1つ"],[2,"M を1つ / S を2つ"],[3,"M＋S"],[4,"M を2つ"]])}</select></div>
+        </div>
+        <div class="row">
+          <div><label>性格（メインスキル発生確率）</label><select data-f="natureSkill">${
+            pick(m.natureSkill,[[0,"関係なし"],[1,"上がる（×1.2）"],[-1,"下がる（×0.8）"]])}</select></div>
+          <div><label>スキル確率アップのサブスキル</label><select data-f="subSkill">${
+            pick(m.subSkill,[[0,"なし"],[1,"S を1つ"],[2,"M を1つ / S を2つ"],[3,"M＋S"],[4,"M を2つ"]])}</select></div>
+        </div>
+        <div class="row">
+          <div><label>性格（げんき回復量）</label><select data-f="natureEnergy">${
+            pick(m.natureEnergy,[[0,"関係なし"],[1,"上がる（×1.2）"],[-1,"下がる（×0.88）"]])}</select></div>
+          <div><label>げんき回復ボーナス</label><select data-f="recoveryBonus">${
+            pick(m.recoveryBonus,[[0,"なし"],[1,"1つ"],[2,"2つ"]])}</select></div>
+          <div><label>最大所持数アップ</label><select data-f="inventoryUp">${
+            pick(m.inventoryUp,[[0,"なし"],[1,"S"],[2,"M"],[3,"L / S+M"],[4,"L+S"],[5,"L+M"],[6,"L+L"]])}</select></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div><label>寝顔リボン</label><select data-f="ribbon">${
+            pick(m.ribbon,[[0,"なし"],[1,"200時間"],[2,"500時間"],[3,"1000時間"],[4,"2000時間"]])}</select></div>
+          <div><label>おてつだいボーナス</label><select data-f="helpBonus">${
+            pick(m.helpBonus?1:0,[[0,"なし"],[1,"あり"]])}</select></div>
+          <div><label>きのみの数S</label><select data-f="berryS">${
+            pick(m.berryS?1:0,[[0,"なし"],[1,"あり"]])}</select></div>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="mon${m.use ? "" : " off"}${open ? " open" : ""}" data-i="${i}">
+      <div class="head">
+        <label class="use"><input type="checkbox" data-use="${i}"${m.use ? " checked" : ""}></label>
+        <span class="nm">${title}</span>
+        <span class="meta">Lv${m.level}・${esc(m.combo)}${marks ? " " + marks : ""}</span>
+        <button class="exp" data-exp="${i}">${open ? "とじる" : "ひらく"}</button>
+        <button class="del" data-del="${i}">けす</button>
+      </div>
+      ${body}
+    </div>`;
+  }).join("");
+
+  /* 開いている行だけ、入力の反応をつける */
+  const openEl = box.querySelector(".mon.open");
+  if (openEl){
+    const i = Number(openEl.dataset.i);
+    openEl.querySelectorAll("[data-f]").forEach(inp => {
+      const f = inp.dataset.f;
+      const ev = (inp.tagName === "SELECT") ? "change" : "input";
+      inp.addEventListener(ev, () => {
+        const before = isCookingUp(state.mons[i].name);
+        if (f === "name" || f === "combo") state.mons[i][f] = inp.value;
+        else if (f === "helpBonus" || f === "berryS") state.mons[i][f] = (inp.value === "1");
+        else state.mons[i][f] = Number(inp.value);
+
+        if (f === "name" && isCookingUp(inp.value) !== before){ renderMons(); render(); return; }
+        renderMade(); render();
+      });
+    });
+  }
+
+  box.querySelectorAll("[data-use]").forEach(cb => {
+    cb.onchange = () => {
+      state.mons[Number(cb.dataset.use)].use = cb.checked;
+      cb.closest(".mon").classList.toggle("off", !cb.checked);
+      renderCount(); render();
+    };
+  });
+  box.querySelectorAll("[data-exp]").forEach(b => {
+    b.onclick = () => {
+      const i = Number(b.dataset.exp);
+      listUi.open = (listUi.open === i) ? null : i;
+      renderMons();
+    };
+  });
+  box.querySelectorAll("[data-del]").forEach(b => {
+    b.onclick = () => {
+      const i = Number(b.dataset.del);
+      state.mons.splice(i, 1);
+      if (listUi.open === i) listUi.open = null;
+      else if (listUi.open !== null && listUi.open > i) listUi.open--;
+      renderMons(); render();
+    };
+  });
+
+  renderCount();
+  renderMade();
+}
+
+/* いま「使う」にチェックが入っている子だけを返す */
+function team(){
+  return state.mons.filter(m => m.use && POKE_BY_NAME[m.name]);
+}
+
+/* 「チームに入っているのは○匹」を出す */
+function renderCount(){
+  const el = $("teamCount");
+  if (!el) return;
+  const n = team().length;
+  const total = state.mons.length;
+  if (total === 0){ el.innerHTML = ""; el.className = ""; return; }
+  el.className = n > 5 ? "over" : "";
+  let s = `チームに入れているのは <b>${n}匹</b>（一覧には ${total}匹）`;
+  if (n > 5) s += " ← ポケスリのチームは5匹までです。多すぎます";
+  if (n === 0) s = `<b>1匹も選ばれていません。</b>「使う」にチェックを入れてください`;
+  el.innerHTML = s;
+}
+
+/* 開いている行の下に「この子が持ってくる食材」を出す */
+function renderMade(){
+  const el = document.querySelector("[data-made]");
+  if (!el) return;
+  const i = Number(el.dataset.made);
+  const m = state.mons[i];
+  if (!m) return;
+  const p = POKE_BY_NAME[m.name];
+  if (!p){ el.innerHTML = m.name ? "？ その名前のポケモンが見つかりません" : ""; return; }
+  const slots = slotsOf(p, m.combo, m.level);
+  if (slots === null){ el.innerHTML = "？ この食材構成は選べません"; return; }
+  const txt = slots.map(s => `<b>${esc(s.ing)}×${s.count}</b>`).join(" ／ ");
+  const locked = m.level < 60 ? `（レベル${m.level}なので枠は${slots.length}つ）` : "";
+  el.innerHTML = `${esc(p.t)}・とくい:${esc(p.sp)}・${esc(p.sk)} → ${txt} ${locked}`;
+}
+
+/* 食材構成とレベルから、開放されている枠の中身を返す */
+function slotsOf(p, combo, level){
+  const idx = { "A":0, "B":1, "C":2 };
+  const open = level >= 60 ? 3 : level >= 30 ? 2 : 1;
+  const out = [];
+  for (let s = 0; s < open; s++){
+    const which = (s === 0) ? 0 : idx[combo[s]];
+    const ing = p.ings[which];
+    if (!ing) return null;                 /* その食材を持っていない */
+    const count = ing[s + 1];              /* 枠1→c1, 枠2→c2, 枠3→c3 */
+    if (!count) return null;
+    out.push({ ing: ing[0], count: count });
+  }
+  return out;
+}
+
+/* 料理1回ぶんのエナジー。レシピレベルのぶんだけ増える
+   出典: pokesleep-tool の PokemonStrength.ts（recipeLevelBonus） */
+/* 全体の既定値（料理ごとに入れていないときに使う） */
+function recipeLevel(){
+  const v = Number(($("recipeLv") || {}).value) || 1;
+  return Math.min(Math.max(v, 1), 70);
+}
+
+/* 料理ごとのレシピレベル。パソコンに覚えさせておく */
+const LV_KEY = "ryoriNaviRecipeLv";
+let recipeLvMap = {};
+function loadRecipeLv(){
+  try {
+    const raw = localStorage.getItem(LV_KEY);
+    recipeLvMap = raw ? (JSON.parse(raw) || {}) : {};
+  } catch(e){ recipeLvMap = {}; }
+}
+function saveRecipeLv(){
+  try { localStorage.setItem(LV_KEY, JSON.stringify(recipeLvMap)); } catch(e){}
+}
+/* その料理のレベル。入れていなければ既定値 */
+function recipeLevelOf(name){
+  const v = recipeLvMap[name];
+  return (typeof v === "number" && v >= 1 && v <= 70) ? v : recipeLevel();
+}
+/* いま持っている食材の在庫 */
+function stockOf(){
+  const out = {};
+  for (const name of ING_LIST){
+    const el = document.querySelector(`[data-stock="${name}"]`);
+    const v = el ? Number(el.value) || 0 : 0;
+    if (v > 0) out[name] = v;
+  }
+  return out;
+}
+
+function eventDish(){  return Number(($("eventDish")  || {}).value) || 1; }
+function eventSkill(){ return Number(($("eventSkill") || {}).value) || 1; }
+
+/* 料理1回ぶんのエナジー。
+   （レシピ基本エナジー）×（1+レシピレベル）×（1+フィールドボーナス）×（イベント倍率）
+   出典: Wiki*「料理」の計算式 */
+function dishEnergy(r){
+  return Math.round(r.e
+    * (1 + RECIPE_LEVEL_BONUS[recipeLevelOf(r.n)] / 100)
+    * (1 + fieldBonus() / 100)
+    * eventDish());
+}
+
+/* ====== なべ（鍋） ====== */
+/* その名前のポケモンが「料理パワーアップ」か「料理チャンス」を持っているか
+   （どちらもスキルレベルで効果が変わるので、入力欄を出す） */
+function isCookingUp(name){
+  const p = POKE_BY_NAME[name];
+  return !!(p && (COOKING_UP[p.sk] || TASTY_CHANCE[p.sk]));
+}
+
+/* いまのEXバフ（EXフィールドでないときは null） */
+function exEffect(){
+  const f = FIELDS[state.fieldIndex];
+  return f.ex ? (EX_EFFECT[state.exEffect] || null) : null;
+}
+/* そのポケモンが好みのきのみ持ちか／メインの好みか */
+function isFavPoke(p){ return favTypes().indexOf(p.t) !== -1; }
+function isMainFavPoke(p){ return FIELDS[state.fieldIndex].ex && favTypes()[0] === p.t; }
+
+/* 「プラス」「マイナス」を持っているか（対になると追加効果が出る） */
+function isPlusMinus(sk){ return sk.indexOf("プラス") === 0 || sk.indexOf("マイナス") === 0; }
+function isPlus(sk){ return sk.indexOf("プラス") === 0; }
+
+/* 日曜日を計算に入れるか（最終日を日曜とみなす） */
+function sundayOn(){ return $("sunday") && $("sunday").value === "1"; }
+function isSundayDay(t, D){ return sundayOn() && t === D - 1; }
+
+/* その日のなべの大きさ。日曜はウィークエンドボーナスで2倍
+   出典: Wiki*「なべ」 {(なべ容量×ウィークエンド)+料理パワーアップ}×キャンチケ */
+function capFor(baseSize, add, grown, sunday){
+  const week = sunday ? GREAT_SUCCESS.sundayPotMul : 1;
+  return Math.round((baseSize * week + add + grown) * (hasTicket() ? 1.5 : 1));
+}
+
+/* 料理チャンスSは「大成功するまで貯まり続ける」（最大+70%）。
+   ゲーム内の説明:「効果は料理が大成功するか、フィールドを移動するまで続きます」
+   なので、毎食ならすのではなく、貯まっていく様子を追いかける必要がある。
+
+   1食ごとに
+     ・スキルの発動ぶんだけ大成功率が上がる（上限+70%）
+     ・その確率で大成功したら 0 に戻る／しなければそのまま次の食へ持ち越し
+   という流れを、確率の分布のまま進める。
+   返り値は「何食目はエナジーが平均何倍になるか」の一覧。 */
+function successMulSeries(chancePerDay, D){
+  const gain = Math.max(0, (chancePerDay || 0) / 3);   /* 1食のあいだにたまる％ */
+  const STEP = 5;
+  const MAXB = GREAT_SUCCESS.chanceMax;                /* +70% が上限 */
+  const n = Math.floor(MAXB / STEP) + 1;
+
+  let dist = new Array(n).fill(0);
+  dist[0] = 1;                                          /* 週のはじめは 0 から */
+  const out = [];
+
+  for (let day = 0; day < D; day++){
+    const sunday = isSundayDay(day, D);
+    const g = sunday ? GREAT_SUCCESS.sunday : GREAT_SUCCESS.weekday;
+    for (let meal = 0; meal < 3; meal++){
+      const next = new Array(n).fill(0);
+      let mul = 0, avgB = 0, avgP = 0;
+      for (let i = 0; i < n; i++){
+        const w = dist[i];
+        if (w <= 0) continue;
+        const b  = Math.min(MAXB, i * STEP + gain);     /* 料理する直前の貯まり具合 */
+        const bi = Math.min(n - 1, Math.round(b / STEP));
+        const p  = Math.min(1, (g.rate + b) / 100);
+        mul  += w * (1 + p * (g.mult - 1));
+        avgB += w * b;
+        avgP += w * p;
+        next[0]  += w * p;            /* 大成功 → 0 に戻る */
+        next[bi] += w * (1 - p);      /* 大成功しなかった → 持ち越し */
+      }
+      out.push({ mul, avgB, avgP });
+      dist = next;
+    }
+  }
+  return out;
+}
+
+/* いいキャンプチケットを使っているか */
+function hasTicket(){ return $("ticket").value === "1"; }
+
+/* 実際になべに入れられる食材の数
+   出典: Wiki*「なべ」  {(なべ容量) + 料理パワーアップ増加分} × キャンチケ1.5、最後に四捨五入 */
+function potCapacity(){
+  const base = Number($("pot").value) || 57;
+  const add  = Number($("potAdd").value) || 0;
+  return Math.round((base + add) * (hasTicket() ? 1.5 : 1));
+}
+
+/* 1週間の献立を組む。
+   実際のプレイと同じように「その時点で作れる中でいちばんエナジーの高いものを毎食作る」。
+   食材は毎日少しずつ増えるので、1日ぶんずつ足しながら進める。 */
+function planCooking(have, capByDay, D, chancePerDay, stock){
+  const list = RECIPES.filter(r => r.cat === state.cat)
+                      .map(r => ({ r, e: dishEnergy(r) }))
+                      .sort((a,b) => b.e - a.e);       /* エナジーの高い順 */
+  /* いま持っている食材から始める（なければ0から） */
+  const pool = Object.assign({}, stock || {});
+  const plan = {};
+  let total = 0;
+  let plain = 0;                                      /* 大成功なしの合計（比較用） */
+
+  /* 料理チャンスSの貯まり具合を、1食ごとに追いかける */
+  const series = successMulSeries(chancePerDay, D);
+  let mealNo = 0;
+
+  for (let day = 0; day < D; day++){
+    /* その日ぶんの食材が入る */
+    for (const k in have) pool[k] = (pool[k] || 0) + have[k] / D;
+    const cap = capByDay[day];
+
+    for (let meal = 0; meal < 3; meal++){
+      const mul = (series[mealNo] || { mul: 1 }).mul;
+      mealNo++;
+      let picked = null;
+      for (const x of list){
+        if (x.r.total > cap) continue;               /* なべに入らない */
+        let ok = true;
+        for (const k in x.r.ings){
+          if ((pool[k] || 0) < x.r.ings[k]){ ok = false; break; }
+        }
+        if (ok){ picked = x; break; }                /* 高い順なので最初に見つかったものが最良 */
+      }
+      if (picked === null) continue;                 /* 何も作れない食 */
+      for (const k in picked.r.ings) pool[k] -= picked.r.ings[k];
+      plan[picked.r.n] = (plan[picked.r.n] || 0) + 1;
+      total += picked.e * mul;
+      plain += picked.e;
+    }
+  }
+  const avgB = series.length ? series.reduce((a,x) => a + x.avgB, 0) / series.length : 0;
+  const avgP = series.length ? series.reduce((a,x) => a + x.avgP, 0) / series.length : 0;
+  return { plan, total, plain, left: pool, chancePct: avgB, successRate: avgP };
+}
+
+/* チーム全体のヒーラーが、1匹あたり1日どれだけ回復させるかを見積もる。
+   ヒーラー自身のおてつだい回数も、げんきの影響を受ける（＝にわとりと卵）ので、
+   まず「回復なし」で見積もってから、その結果をもう一度使って計算し直す */
+function teamHealing(list, helpBonusCount){
+  const members = list.filter(m => POKE_BY_NAME[m.name]);
+  const n = members.length || 1;
+  let each = {};
+  members.forEach(m => { each[m.name] = 0; });
+
+  const pmCount = members.filter(m => isPlusMinus(POKE_BY_NAME[m.name].sk)).length;
+
+  for (let pass = 0; pass < 2; pass++){
+    const next = {};
+    members.forEach(m => { next[m.name] = 0; });
+
+    for (const m of members){
+      const st = perDayStats(m, helpBonusCount, each[m.name] || 0);
+      if (!st) continue;
+
+      /* 本来のヒーラースキル */
+      if (st.healOut > 0){
+        if (st.healTarget === "all"){
+          members.forEach(x => { next[x.name] += st.healOut; });
+        } else if (st.healTarget === "one"){
+          /* チームからランダムに1匹 → 平均すると全員に 1/n ずつ */
+          members.forEach(x => { next[x.name] += st.healOut / n; });
+        } else {
+          next[m.name] += st.healOut;          /* 自分だけ */
+        }
+      }
+      /* マイナスの追加ぶん（対になる子が自分以外にいるとき）*/
+      if (st.minusHealOut > 0 && pmCount >= 2){
+        members.forEach(x => { next[x.name] += st.minusHealOut / n; });
+      }
+    }
+    each = next;
+  }
+  return { each };
+}
+
+/* カバン（最大所持数）の上限。
+   出典: PokemonIv.ts　基本値 + 5×進化回数 + 寝顔リボン + 最大所持数アップ×6、
+   いいキャンプチケットで ×1.2 */
+function carryLimitOf(p, m){
+  const base = p.cl
+    + BAG.perEvolution * Math.max(0, p.ec || 0)
+    + (BAG.ribbon[Math.min(m.ribbon || 0, 4)] || 0)
+    + (m.inventoryUp || 0) * BAG.perInventorySub;
+  return Math.ceil(base * (hasTicket() ? BAG.ticketMul : 1));
+}
+
+/* ====== げんき（元気）のしくみ ======
+   出典: pokesleep-tool の Energy.ts
+   ・起きている間は10分で1%減る
+   ・げんきが高いほど、おてつだいの間隔が短くなる
+   ・睡眠で回復する（睡眠スコア100＝510分で100%）
+   ・ヒーラーのスキルで回復する
+   ================================================ */
+function sleepScore(){
+  const v = Number(($("sleepScore") || {}).value) || 100;
+  return Math.min(Math.max(v, 1), 100);
+}
+
+/* げんきの値から、おてつだい間隔の倍率を返す */
+function freqRateByEnergy(e){
+  for (const [th, rate] of ENERGY.rate){
+    if (e > th) return rate;
+  }
+  return 1;
+}
+
+/* 1日ぶんのおてつだい回数を、げんきの上がり下がりを追いながら数える。
+   healPerDay = その子が1日に受け取るげんき回復量（ヒーラーのぶん） */
+function simulateDay(baseInterval, healPerDay, m, bagLimit, itemsPerHelp){
+  const score    = sleepScore();
+  const sleepMin = score * ENERGY.sleepFullMinutes / 100;
+  const awakeMin = 1440 - sleepMin;
+
+  const recFactor = m.natureEnergy === 1 ? 1.2 : m.natureEnergy === -1 ? 0.88 : 1;
+  const recBonus  = m.recoveryBonus || 0;
+  const wakeMax   = recBonus > 0 ? ENERGY.wakeMaxWithBonus : ENERGY.wakeMax;
+  const sleepRec  = Math.min(wakeMax,
+    Math.round(sleepMin / ENERGY.sleepFullMinutes * 100) * recFactor
+    * (1 + ENERGY.recoveryBonusPer * recBonus));
+
+  const awakeSteps = Math.max(1, Math.round(awakeMin / 10));
+  const sleepSteps = Math.max(0, Math.round(sleepMin / 10));
+  /* 回復は起きている間にならして受け取るものとする。性格の補正がかかる */
+  const healPerStep = (healPerDay || 0) * recFactor / awakeSteps;
+
+  let wake = wakeMax, helps = 0, sumE = 0, steps = 0, snack = 0;
+  /* 前の日の残りが次の日の出発点になるので、何日か回して落ち着かせる */
+  for (let day = 0; day < 6; day++){
+    let e = wake;
+    helps = 0; sumE = 0; steps = 0;
+    /* 起きている間 */
+    for (let i = 0; i < awakeSteps; i++){
+      helps += 600 / (baseInterval * freqRateByEnergy(e));
+      sumE += e; steps++;
+      e = Math.max(0, e - ENERGY.decayPer10min) + healPerStep;
+      if (e > wakeMax) e = wakeMax;
+    }
+    /* ねている間もおてつだいは続く。げんきは減らない。
+       ただしカバンがいっぱいになると、それ以降は「つまみ食い」になる
+       （きのみだけカビゴンに直接渡すので、食材が入らない） */
+    snack = 0;
+    let bag = 0;
+    for (let i = 0; i < sleepSteps; i++){
+      const h = 600 / (baseInterval * freqRateByEnergy(e));
+      helps += h; sumE += e; steps++;
+      if (bagLimit > 0){
+        const room = Math.max(0, bagLimit - bag) / Math.max(0.0001, itemsPerHelp);
+        const normal = Math.min(h, room);
+        bag += normal * itemsPerHelp;
+        snack += h - normal;
+      }
+    }
+    wake = Math.min(wakeMax, e + sleepRec);
+  }
+  return { helpsPerDay: helps, snackHelps: snack, avgEnergy: steps ? sumE / steps : 0 };
+}
+
+/* ====== 計算 ====== */
+/* おてつだいの間隔（秒）。式は pokesleep-tool の PokemonRp.ts に合わせている */
+function helpInterval(p, m, helpBonusCount){
+  const nature = m.natureSpeed === 1 ? 0.9 : m.natureSpeed === -1 ? 1.075 : 1;
+  /* おてつだいスピードのサブスキルと、チームのおてつだいボーナスを合わせて最大35%まで */
+  const subFactor = Math.min(m.subSpeed * 0.07 + 0.05 * (helpBonusCount || 0), 0.35);
+  const factor = ((501 - m.level) / 500) * nature * ribbonFactor(p, m) * (1 - subFactor);
+  let base = p.f * Math.trunc(factor * 10000) / 10000;
+  /* いいキャンプチケットは、おてつだいスピードを1.2倍にする（＝間隔を1.2で割る） */
+  if (hasTicket()) base = base / 1.2;
+  return base * exFactor(p);
+}
+
+/* 寝顔リボンによるスピード補正。式は PokemonIv.ts に合わせている */
+function ribbonFactor(p, m){
+  const r = m.ribbon || 0;
+  if (p.el === 0) return 1;                 /* もう進化しないポケモンは効果なし */
+  if (r >= 4) return p.el === 2 ? 0.75 : p.el === 1 ? 0.88 : 1;
+  if (r >= 2) return p.el === 2 ? 0.89 : p.el === 1 ? 0.95 : 1;
+  return 1;
+}
+
+/* メインスキルが発動する確率。式は PokemonIv.ts に合わせている */
+function skillRate(p, m){
+  const nature = m.natureSkill === 1 ? 1.2 : m.natureSkill === -1 ? 0.8 : 1;
+  const ex = exEffect();
+  const exMul = (ex && ex.skillMul && isFavPoke(p)) ? ex.skillMul : 1;
+  const rate = (p.skr / 100) * nature * (1 + m.subSkill * 0.18) * eventSkill() * exMul;
+  if (rate <= 0) return 0;
+  /* 天井（しばらく出ないと出やすくなる仕組み）のぶんを足す */
+  const pity = (p.sp === "スキル") ? Math.ceil(142000 / p.f) : 78;
+  return rate / (1 - Math.pow(1 - rate, pity + 1));
+}
+
+/* 食材おてつだいになる確率 */
+function ingRate(p, m){
+  const nature = m.natureIng === 1 ? 1.2 : m.natureIng === -1 ? 0.8 : 1;
+  return (p.ir / 100) * nature * (1 + m.subIng * 0.18);
+}
+
+/* チーム全体で、指定日数のあいだに集まる食材を数える */
+function gatherIngredients(){
+  const days  = Number($("days").value) || 7;
+  const have = {};
+  const perMon = [];
+
+  /* チームの中で「おてつだいボーナス」を持っている数（最大4） */
+  const helpBonusCount = Math.min(team().filter(x => x.helpBonus).length, 4);
+
+  /* ヒーラーが1日に配るげんき回復量を見積もる */
+  const heal = teamHealing(team(), helpBonusCount);
+
+  for (const m of team()){
+    const p = POKE_BY_NAME[m.name];
+    if (!p) continue;
+    const slots = slotsOf(p, m.combo, m.level);
+    if (slots === null) continue;
+
+    const sim = simulateDay(helpInterval(p, m, helpBonusCount), heal.each[m.name] || 0, m);
+    const helpsPerDay = sim.helpsPerDay;
+    const rate = ingRate(p, m);
+    const ingHelps = helpsPerDay * days * rate;      /* 食材を持ってくる回数 */
+    const each = ingHelps / slots.length;            /* 枠は等しく選ばれる */
+
+    const mine = {};
+    for (const s of slots){
+      const n = each * s.count;
+      have[s.ing] = (have[s.ing] || 0) + n;
+      mine[s.ing] = (mine[s.ing] || 0) + n;
+    }
+    /* 料理パワーアップを持っている子なら、1日に何回発動して、なべがどれだけ増えるか */
+    let cook = null;
+    if (COOKING_UP[p.sk]){
+      const procsPerDay = helpsPerDay * skillRate(p, m);
+      const up = COOKING_UP[p.sk][Math.min(Math.max(m.skillLevel,1),7) - 1];
+      cook = { procsPerDay, up, addPerDay: procsPerDay * up };
+    }
+
+    /* 料理チャンスSを持っている子なら、大成功率を1日どれだけ上げるか */
+    let tasty = null;
+    if (TASTY_CHANCE[p.sk]){
+      const tc = TASTY_CHANCE[p.sk];
+      const procsPerDay = helpsPerDay * skillRate(p, m);
+      const upPct = tc[Math.min(Math.max(m.skillLevel,1), tc.length) - 1];
+      tasty = { procsPerDay, upPct, addPerDay: procsPerDay * upPct };
+    }
+
+    perMon.push({ mon:m, poke:p, ingHelps, berryHelps: helpsPerDay*days*(1-rate), mine, cook, tasty });
+  }
+
+  /* 食材ゲットS のぶんを足す */
+  const pmCount = team().filter(x => {
+    const q = POKE_BY_NAME[x.name];
+    return q && isPlusMinus(q.sk);
+  }).length;
+
+  for (const m of team()){
+    const q = POKE_BY_NAME[m.name];
+    if (!q || !INGREDIENT_MAGNET[q.sk]) continue;
+    const st = perDayStats(m, helpBonusCount);
+    if (!st) continue;
+    const each = st.magnetPerDay * days / ING_KINDS;
+    for (const k of ING_LIST) have[k] = (have[k] || 0) + each;
+    /* プラスの追加ぶん（対になる子が自分以外にいるとき） */
+    if (st.plusPerDay > 0 && pmCount >= 2){
+      have[st.plusIng] = (have[st.plusIng] || 0) + st.plusPerDay * days;
+    }
+  }
+
+  return { have, perMon, days };
+}
+
+/* きのみエナジー（目安）。式は Berry.ts に合わせている */
+function fieldBonus(){
+  const v = Number(($("fieldBonus") || {}).value) || 0;
+  return Math.min(Math.max(v, 0), 100);
+}
+
+function berryEnergy(type, level){
+  const b0 = BERRY_BASE[type];
+  const raw = Math.max(b0 + level - 1, Math.round(Math.pow(1.025, level - 1) * b0));
+  /* フィールドボーナスは、好みの2倍より先に掛ける（出典: Berry.ts） */
+  return Math.ceil(raw * (1 + fieldBonus() / 100));
+}
+
+/* ====== 結果を描く ====== */
+function render(){
+  const box = $("result");
+  const { have, perMon, days } = gatherIngredients();
+
+  if (perMon.length === 0){
+    box.innerHTML = '<p class="empty">ポケモンの名前を正しく入れると、ここに結果が出ます。</p>';
+    return;
+  }
+
+  const pot = potCapacity();
+  const meals = days * 3;          /* 1日3回作れる */
+
+  /* チーム全体の「料理パワーアップ」の見込み */
+  const cooks = perMon.filter(x => x.cook);
+  const upPerDay = cooks.reduce((s,x) => s + x.cook.addPerDay, 0);
+
+  /* 料理ごとに「何回ぶん作れるか」を計算 */
+  const list = RECIPES.filter(r => r.cat === state.cat).map(r => {
+    let times = Infinity;
+    const lack = [];
+    let shortage = 0;          /* 足りない食材の合計個数 */
+    for (const [ing, need] of Object.entries(r.ings)){
+      const got = have[ing] || 0;
+      times = Math.min(times, Math.floor(got / need));
+      if (got < need){
+        lack.push(`${ing} あと${Math.ceil(need - got)}個`);
+        shortage += need - got;
+      }
+    }
+    times = Math.min(times, meals);
+    return { r, times, lack, shortage, tooBig: r.total > pot, week: dishEnergy(r) * times };
+  });
+
+  const ok = list.filter(x => !x.tooBig && x.times > 0).sort((a,b) => b.week - a.week);
+
+  /* 「あと少し」＝ 材料が1つも足りていない料理は除き、不足が少ない順に並べる */
+  const near = list
+    .filter(x => !x.tooBig && x.times === 0 && x.lack.length < Object.keys(x.r.ings).length)
+    .sort((a,b) => (a.shortage / a.r.total) - (b.shortage / b.r.total))
+    .slice(0, 5);
+
+  /* 鍋のせいで諦めた料理＝食材は足りているのに、鍋に入りきらないもの */
+  const big = list.filter(x => x.tooBig && x.times > 0).length;
+
+  let html = "";
+
+  /* 自動選出と同じやり方で献立を組む */
+  const potBase = Number($("pot").value) || 57;
+  const potAdd  = Number($("potAdd").value) || 0;
+  const capByDay = [];
+  /* チームの料理パワーアップ。1回料理するとリセットされるので1食ぶん（1日の1/3） */
+  const potGrow = Math.min(
+    perMon.reduce((a,x) => a + (x.cook ? x.cook.addPerDay : 0), 0) / 3,
+    Math.max(0, 200 - potAdd));
+  for (let t = 0; t < days; t++) capByDay.push(capFor(potBase, potAdd, potGrow, isSundayDay(t, days)));
+  const chancePerDay = perMon.reduce((a,x) => a + (x.tasty ? x.tasty.addPerDay : 0), 0);
+  const menu = planCooking(have, capByDay, days, chancePerDay, stockOf());
+  const menuTotal2 = ([name, cnt]) => {
+    const rr = RECIPES.find(x => x.n === name);
+    return rr ? dishEnergy(rr) * cnt : 0;
+  };
+  const menuList = Object.entries(menu.plan).sort((a,b) => menuTotal2(b) - menuTotal2(a));
+  const cooked = menuList.reduce((a,b) => a + b[1], 0);
+
+  if (menuList.length === 0){
+    html += `<div class="note">この食材だと、${esc(state.cat)}のレシピが1回も作れません。
+      日数を増やすか、食材を持ってくるポケモンを足してみてください。</div>`;
+  } else {
+    html += `<div class="best">
+      <div class="eyebrow">${days}日ぶん（${days*3}食）の料理エナジー</div>
+      <div class="name">約 ${Math.round(menu.total).toLocaleString()}</div>
+      <div class="why">毎食、そのとき作れる中でいちばん高いものを作った場合です。
+        <br>うち大成功のぶん 約 ${Math.round(menu.total - menu.plain).toLocaleString()}${
+          menu.chancePct > 0 ? `（料理チャンスSで平均 +${menu.chancePct.toFixed(0)}% ／ 大成功 ${(menu.successRate*100).toFixed(0)}%）` : ""}${
+          sundayOn() ? "／ 最終日は日曜（なべ2倍・大成功3倍）" : ""}
+        ${cooked < days*3 ? `<br>${days*3 - cooked}食は食材が足りず作れませんでした。` : ""}</div>
+    </div>
+    <div class="scroll"><table>
+      <tr><th>献立</th><th class="num">1回</th><th class="num">回数</th><th class="num">合計</th></tr>` +
+      menuList.map(([name, n]) => {
+        const rr = RECIPES.find(x => x.n === name);
+        return `<tr><td>${esc(name)}</td>
+          <td class="num">${dishEnergy(rr).toLocaleString()}</td>
+          <td class="num">${n}</td>
+          <td class="num">${(dishEnergy(rr)*n).toLocaleString()}</td></tr>`;
+      }).join("") + `</table></div>`;
+  }
+
+  /* 作れる料理のランキング */
+  if (ok.length > 0){
+    html += `<div class="scroll"><table>
+      <tr><th>ほかに作れる料理（同じものだけ作った場合）</th><th class="num">1回</th><th class="num">作れる回数</th><th class="num">${days}日の合計</th></tr>` +
+      ok.slice(0, 10).map(x => `<tr>
+        <td>${esc(x.r.n)}</td>
+        <td class="num">${dishEnergy(x.r).toLocaleString()}</td>
+        <td class="num">${x.times}</td>
+        <td class="num">${x.week.toLocaleString()}</td>
+      </tr>`).join("") + `</table></div>`;
+  }
+
+  /* あと少しで作れる料理 */
+  if (near.length > 0){
+    html += `<h2 style="margin-top:18px">あと少しで作れる料理（足りない食材）</h2><div class="scroll"><table>` +
+      near.map(x => `<tr>
+        <td>${esc(x.r.n)}</td>
+        <td class="num">${dishEnergy(x.r).toLocaleString()}</td>
+        <td class="lack">${esc(x.lack.join("、"))}</td>
+      </tr>`).join("") + `</table></div>`;
+  }
+
+  /* なべが足りないだけで、食材はそろっている料理 */
+  if (big > 0){
+    const bigList = list.filter(x => x.tooBig && x.times > 0)
+                        .sort((a,b) => dishEnergy(b.r) - dishEnergy(a.r)).slice(0, 5);
+    html += `<h2 style="margin-top:18px">なべを広げれば作れる料理</h2>
+      <p class="hint" style="margin-bottom:8px">食材はそろっているのに、いまのなべ（${pot}個）に入りきらない料理です。</p>
+      <div class="scroll"><table>
+      <tr><th>料理</th><th class="num">1回</th><th class="num">必要ななべ</th><th>あとどれくらい</th></tr>` +
+      bigList.map(x => {
+        /* キャンチケのぶんを戻して、「増加分」がいくつ必要かを求める */
+        const mul = hasTicket() ? 1.5 : 1;
+        const need = Math.ceil(x.r.total / mul) - (Number($("pot").value) || 57)
+                     - (Number($("potAdd").value) || 0);
+        let how;
+        if (upPerDay > 0){
+          const dayNeed = need / upPerDay;
+          how = `料理パワーアップ あと約 <b>${Math.ceil(need)}</b>（およそ ${dayNeed < 1 ? "1日以内" : Math.ceil(dayNeed) + "日ぶん"}）`;
+        } else {
+          how = `なべ容量を あと <b>${Math.ceil(need)}</b> 増やす`;
+        }
+        return `<tr><td>${esc(x.r.n)}</td><td class="num">${dishEnergy(x.r).toLocaleString()}</td>
+                <td class="num">${x.r.total}</td><td class="lack">${how}</td></tr>`;
+      }).join("") + `</table></div>`;
+  }
+
+  /* 料理パワーアップの見込み */
+  if (cooks.length > 0){
+    html += `<h2 style="margin-top:18px">料理パワーアップの見込み</h2><div class="scroll"><table>
+      <tr><th>ポケモン</th><th class="num">1回で増える</th><th class="num">1日の発動回数</th><th class="num">1日で増える</th></tr>` +
+      cooks.map(x => `<tr>
+        <td>${esc(x.mon.name)}<br><span style="font-size:11px;color:var(--faint);font-weight:700">${esc(x.poke.sk)} Lv${x.mon.skillLevel}</span></td>
+        <td class="num">+${x.cook.up}</td>
+        <td class="num">${x.cook.procsPerDay.toFixed(1)}回</td>
+        <td class="num">+${Math.round(x.cook.addPerDay)}</td>
+      </tr>`).join("") +
+      `<tr><td><b>合計</b></td><td class="num">-</td><td class="num">-</td>
+       <td class="num"><b>+${Math.round(upPerDay)}</b></td></tr></table></div>
+      <p class="hint"><b>料理パワーアップは1回料理するとリセットされます。</b>
+         そのため上の表の「1日で増える」がそのまま乗るのではなく、
+         <b>次の料理までにたまるぶん（1日の3分の1）</b>だけがなべに乗ります。
+         この計算はツールが自動でやっています。上限は +200 です。</p>`;
+  }
+
+  /* 集まる食材の一覧 */
+  html += `<h2 style="margin-top:18px">${days}日で集まる食材（目安）</h2><div>` +
+    Object.entries(have).sort((a,b) => b[1]-a[1])
+      .map(([k,v]) => `<span class="pill">${esc(k)} ${Math.floor(v)}</span>`).join("") +
+    `</div>`;
+
+  /* 好みのきのみに当たっているか */
+  const favs = favTypes();
+  html += `<h2 style="margin-top:18px">好みのきのみ（${favs.map(t=>BERRY_BY_TYPE[t]).join("・")}）</h2><div class="scroll"><table>
+    <tr><th>ポケモン</th><th>きのみ</th><th class="num">${days}日のきのみエナジー（目安）</th></tr>` +
+    perMon.map(x => {
+      const t = x.poke.t;
+      const hit = favs.includes(t);
+      const perBerry = berryEnergy(t, x.mon.level) * (hit ? 2 : 1);
+      /* きのみを1回に何個持ってくるか。きのみが得意なら2個、きのみの数Sでさらに+1 */
+      const num = (x.poke.sp === "きのみ" ? 2 : 1) + (x.mon.berryS ? 1 : 0);
+      const total = Math.round(x.berryHelps * num * perBerry);
+      return `<tr${hit?'':' class="no"'}>
+        <td>${esc(x.mon.name)}</td>
+        <td><span class="pill${hit?" fav":""}">${esc(BERRY_BY_TYPE[t])}${hit?" ×2":""}</span></td>
+        <td class="num">${total.toLocaleString()}</td>
+      </tr>`;
+    }).join("") + `</table></div>`;
+
+  html += `<div class="note"><b>この数字は目安です。</b>
+    おてつだいでカバンがいっぱいになること、
+    食材を増やすメインスキル、レシピレベルのボーナス、料理の大成功は、まだ計算に入れていません。
+    いいキャンプチケットの「最大所持数1.2倍」も、カバンを数えていないので効いていません
+    （スピード1.2倍となべ1.5倍は入っています）。
+    「どの料理を狙うか」を決めるための参考にしてください。</div>`;
+
+  box.innerHTML = html;
+}
+
+/* 手動の結果を出したあと、自動の答えも組み直す */
+const renderManual = render;
+render = function(){ renderManual(); scheduleAuto(); };
+
+/* ================================================================
+   自動でチームを組む
+
+   7日×5枠の並べ方をそのまま全部試すと天文学的な数になるので、
+   「どのポケモンを何日入れるか」を決める問題に置き換えて解く。
+   決めたあと、なべを育てる子が先に入るように日割りする。
+   ================================================================ */
+const TEAM_SIZE = 5;
+
+/* 1匹の「1日あたり」の働き。
+   helpers = チーム内のおてつだいボーナスの数、healPerDay = 1日に受け取るげんき回復量 */
+function perDayStats(m, helpers, healPerDay){
+  const p = POKE_BY_NAME[m.name];
+  if (!p) return null;
+  const slots = slotsOf(p, m.combo, m.level);
+  if (slots === null) return null;
+
+  const rate = ingRate(p, m);
+  const favs = favTypes();
+  const ex = exEffect();
+
+  /* EXの「食材」バフのぶんも、カバンの消費に効く */
+  let exIngPre = 0;
+  if (ex && ex.ing && favs.includes(p.t)){
+    exIngPre = ex.ing + ((p.sp === "食材" || p.sp === "オール") ? ex.ingExtra : 0);
+  }
+  const berryCount = (p.sp === "きのみ" ? 2 : 1) + (m.berryS ? 1 : 0);
+  /* 1回のおてつだいで、カバンをいくつ使うか（きのみのときと食材のときの平均） */
+  let avgIng = 0;
+  for (const sl of slots) avgIng += (sl.count + exIngPre) / slots.length;
+  const itemsPerHelp = (1 - rate) * berryCount + rate * avgIng;
+
+  const sim = simulateDay(helpInterval(p, m, helpers), healPerDay || 0, m,
+                          carryLimitOf(p, m), itemsPerHelp);
+  const helpsPerDay = sim.helpsPerDay;
+  /* つまみ食いになったぶんは、食材が入らずきのみだけになる */
+  const normalHelps = Math.max(0, helpsPerDay - (sim.snackHelps || 0));
+
+  const each = normalHelps * rate / slots.length;
+  const ing = {};
+  for (const s of slots) ing[s.ing] = (ing[s.ing] || 0) + each * (s.count + exIngPre);
+
+  /* 好みのきのみは2倍。EXの「きのみ」バフのときは2.4倍になる */
+  const favMul = favs.includes(p.t)
+    ? ((ex && ex.berryMul) ? ex.berryMul : 2) : 1;
+  /* つまみ食いのぶんは、まるごときのみになる */
+  const berryHelps = normalHelps * (1 - rate) + (sim.snackHelps || 0);
+  const berry = berryHelps * berryCount * berryEnergy(p.t, m.level) * favMul;
+
+  const up = COOKING_UP[p.sk];
+  /* EXでは「メインの好みのきのみ」のポケモンはスキルレベルが +1 される */
+  const lvBonus = isMainFavPoke(p) ? EX_MAIN_SKILL_LEVEL_BONUS : 0;
+  const lv = Math.min(Math.max((m.skillLevel || 6) + lvBonus, 1), 7);
+  const pot = up ? normalHelps * skillRate(p, m) * up[lv - 1] : 0;
+
+  /* 料理チャンスS が1日に上げてくれる大成功率（％） */
+  const tc = TASTY_CHANCE[p.sk];
+  const chance = tc ? normalHelps * skillRate(p, m) * tc[Math.min(lv, tc.length) - 1] : 0;
+
+  /* 食材ゲットS。1日に何個もらえるか（どの食材かはランダムなので、あとで19種にならす） */
+  const mag = INGREDIENT_MAGNET[p.sk];
+  const magnetPerDay = mag ? normalHelps * skillRate(p, m) * mag[lv - 1] : 0;
+  /* プラス側の追加ぶん。対になる子がチームにいるときだけ、1枠目の食材をもらう */
+  const plusPerDay = (mag && isPlus(p.sk))
+    ? normalHelps * skillRate(p, m) * PLUS_BONUS_COUNT : 0;
+
+  /* この子が1日に配れるげんき回復量 */
+  const hl = HEALERS[p.sk];
+  let healOut = 0, healTarget = null;
+  if (hl){
+    healOut = normalHelps * skillRate(p, m) * hl.v[Math.min(lv, hl.v.length) - 1];
+    healTarget = hl.target;
+  }
+  /* マイナスは、対になる子がいると げんきエールS も出す */
+  let minusHealOut = 0;
+  if (p.sk.indexOf("マイナス") === 0){
+    minusHealOut = normalHelps * skillRate(p, m) * MINUS_CHEER[Math.min(lv, 6) - 1];
+  }
+
+  return { ing, berry, pot, chance, magnetPerDay, plusPerDay,
+           plusIng: p.ings[0][0], isPM: isPlusMinus(p.sk),
+           healOut, healTarget, minusHealOut, avgEnergy: sim.avgEnergy,
+           snackRate: helpsPerDay > 0 ? (sim.snackHelps || 0) / helpsPerDay : 0,
+           bagLimit: carryLimitOf(p, m), itemsPerHelp,
+           helpBonus: !!m.helpBonus, poke: p };
+}
+
+/* げんき回復量をこの段階に区切って、そのつど計算し直す（毎回全部やると重いため） */
+const HEAL_LEVELS = [0, 15, 30, 60, 100, 160, 250];
+function healIdxFor(v){
+  let best = 0;
+  for (let i = 1; i < HEAL_LEVELS.length; i++){
+    if (Math.abs(HEAL_LEVELS[i] - v) < Math.abs(HEAL_LEVELS[best] - v)) best = i;
+  }
+  return best;
+}
+
+/* 一覧の全員を候補にする。計算結果は使うぶんだけ作って覚えておく */
+function buildCandidates(){
+  const out = [];
+  state.mons.forEach((m, i) => {
+    if (perDayStats(m, 0, 0) === null) return;
+    out.push({ mon:m, index:i, cache:{}, name:m.name, nickname:m.nickname });
+  });
+  return out;
+}
+
+/* 候補の1日あたりの働き。helpers＝おてつだいボーナスの数、healIdx＝受け取る回復量の段階 */
+function candStat(c, helpers, healIdx){
+  const k = helpers + "_" + healIdx;
+  let v = c.cache[k];
+  if (v === undefined){
+    v = perDayStats(c.mon, helpers, HEAL_LEVELS[healIdx]);
+    c.cache[k] = v;
+  }
+  return v;
+}
+
+/* 候補が多すぎると重いので、見込みのある子だけに絞る */
+function pruneCandidates(list, limit){
+  if (list.length <= limit) return list;
+  const ingVol = x => Object.values(candStat(x,0,0).ing).reduce((a,b) => a+b, 0);
+  const keep = new Set();
+  [...list].sort((a,b) => candStat(b,0,0).berry - candStat(a,0,0).berry)
+           .slice(0, limit).forEach(x => keep.add(x));
+  [...list].sort((a,b) => ingVol(b) - ingVol(a))
+           .slice(0, limit).forEach(x => keep.add(x));
+  [...list].filter(x => candStat(x,0,0).pot > 0)
+           .sort((a,b) => candStat(b,0,0).pot - candStat(a,0,0).pot)
+           .slice(0, 4).forEach(x => keep.add(x));
+  return [...keep];
+}
+
+/* 「何日入れるか」の割り当てを評価して、1週間の合計エナジーを出す */
+function evalAlloc(alloc, cands, D){
+  let hbDays = 0;
+  for (let i = 0; i < cands.length; i++){
+    if (candStat(cands[i],0,0).helpBonus) hbDays += alloc[i];
+  }
+  const helpers = Math.min(4, Math.round(hbDays / D));
+
+  /* ヒーラーが1匹あたり1日どれだけ回復させるかを見積もる。
+     チームは日によって変わるので、「その子が入っている日数」で重みをつけてならす */
+  let healAll = 0, healOne = 0, pmDaysH = 0;
+  const selfHeal = {};
+  for (let i = 0; i < cands.length; i++){
+    const d = alloc[i];
+    if (!d) continue;
+    const s0 = candStat(cands[i], helpers, 0);
+    if (s0.healOut > 0){
+      if (s0.healTarget === "all")      healAll += s0.healOut * d / D;
+      else if (s0.healTarget === "one") healOne += s0.healOut * d / D;
+      else selfHeal[i] = (selfHeal[i] || 0) + s0.healOut;
+    }
+    if (s0.isPM) pmDaysH += d;
+    if (s0.minusHealOut > 0) healOne += 0;   /* 下で対の有無を見てから足す */
+  }
+  /* マイナスの追加ヒール（対になる子がいるとき） */
+  if (pmDaysH > 0){
+    for (let i = 0; i < cands.length; i++){
+      const d = alloc[i];
+      if (!d) continue;
+      const s0 = candStat(cands[i], helpers, 0);
+      if (s0.minusHealOut > 0 && pmDaysH - d > 0) healOne += s0.minusHealOut * d / D;
+    }
+  }
+  /* 「ランダムに1匹」は平均するとチーム5匹に1/5ずつ */
+  const healBase = healAll + healOne / TEAM_SIZE;
+  const healIdx = {};
+  for (let i = 0; i < cands.length; i++){
+    if (!alloc[i]) continue;
+    healIdx[i] = healIdxFor(healBase + (selfHeal[i] || 0));
+  }
+
+  let berry = 0;
+  const have = {};
+  const potMons = [];
+  let chanceDays = 0;
+  const magnets = [];
+  let pmDays = 0;
+  for (let i = 0; i < cands.length; i++){
+    const d = alloc[i];
+    if (!d) continue;
+    const s = candStat(cands[i], helpers, healIdx[i] || 0);
+    berry += s.berry * d;
+    for (const k in s.ing) have[k] = (have[k] || 0) + s.ing[k] * d;
+    if (s.pot > 0) potMons.push({ per: s.pot, days: d });
+    chanceDays += (s.chance || 0) * d;
+    if (s.magnetPerDay > 0) magnets.push({ s, days: d });
+    if (s.isPM) pmDays += d;
+  }
+
+  /* 食材ゲットS。どの食材かはランダムなので19種にならす。
+     プラス側は、対になる子がいる日だけ1枠目の食材を追加でもらう */
+  for (const x of magnets){
+    const each = x.s.magnetPerDay * x.days / ING_KINDS;
+    for (const k of ING_LIST) have[k] = (have[k] || 0) + each;
+    if (x.s.plusPerDay > 0 && pmDays - x.days > 0){
+      /* 自分以外にプラス・マイナス持ちがいた日数のぶんだけ */
+      const partnerDays = Math.min(x.days, pmDays - x.days);
+      have[x.s.plusIng] = (have[x.s.plusIng] || 0) + x.s.plusPerDay * partnerDays;
+    }
+  }
+  const chancePerDay = chanceDays / D;   /* 1週間ならしたときの1日あたり */
+
+  /* なべの大きさが日ごとにどう育つか（育てる子は先に入れる前提） */
+  const base  = Number($("pot").value) || 57;
+  const add0  = Number($("potAdd").value) || 0;
+  const room  = Math.max(0, 200 - add0);          /* 料理パワーアップは +200 まで */
+  const capByDay = [];
+  for (let t = 1; t <= D; t++){
+    /* 料理パワーアップは1回料理するとリセットされるので、
+       「次の料理までにたまるぶん」＝1日の発動ぶんを3食で割った量しか乗らない */
+    let grown = 0;
+    for (const x of potMons) if (t <= x.days) grown += x.per / 3;
+    grown = Math.min(grown, room);
+    capByDay.push(capFor(base, add0, grown, isSundayDay(t - 1, D)));
+  }
+
+  /* 1週間の献立を組む */
+  const menu = planCooking(have, capByDay, D, chancePerDay, stockOf());
+
+  return { total: berry + menu.total, berry, menu, have, helpers, capByDay, chancePerDay,
+           healIdx, healBase };
+}
+
+/* 1日ぶんを別の子に移してみて、良くなるなら採用する、を繰り返す */
+function localSearch(alloc, cands, D){
+  const cur = alloc.slice();
+  let score = evalAlloc(cur, cands, D);
+  const n = cands.length;
+  for (let pass = 0; pass < 30; pass++){
+    let improved = false;
+    for (let i = 0; i < n; i++){
+      for (let j = 0; j < n; j++){
+        /* cur[i] は下のループの中で減るので、毎回ここで確かめる。
+           これを忘れると日数がマイナスになる */
+        if (cur[i] <= 0) break;
+        if (i === j || cur[j] >= D) continue;
+        cur[i]--; cur[j]++;
+        const s = evalAlloc(cur, cands, D);
+        if (s.total > score.total + 1e-9){ score = s; improved = true; }
+        else { cur[i]++; cur[j]--; }
+      }
+    }
+    if (!improved) break;
+  }
+  return { alloc: cur, score };
+}
+
+function optimizeTeam(){
+  const D = Number($("days").value) || 7;
+  let cands = buildCandidates();
+  if (cands.length === 0) return null;
+  cands = pruneCandidates(cands, 22);
+  const n = cands.length;
+  const size = Math.min(TEAM_SIZE, n);
+
+  const byBerry = cands.map((c,i) => [i, candStat(c,0,0).berry]).sort((a,b) => b[1]-a[1]);
+  const byIng   = cands.map((c,i) => [i, Object.values(candStat(c,0,0).ing).reduce((x,y)=>x+y,0)])
+                       .sort((a,b) => b[1]-a[1]);
+
+  /* 出発点を3つ用意して、それぞれ改善してみる */
+  const starts = [];
+  const fill = (order) => {
+    const a = new Array(n).fill(0);
+    for (let k = 0; k < size; k++) a[order[k][0]] = D;
+    return a;
+  };
+  starts.push(fill(byBerry));
+  starts.push(fill(byIng));
+  const mix = new Array(n).fill(0);
+  let put = 0;
+  for (let k = 0; k < n && put < Math.ceil(size/2); k++){ mix[byBerry[k][0]] = D; put++; }
+  for (let k = 0; k < n && put < size; k++){
+    const i = byIng[k][0];
+    if (mix[i] === 0){ mix[i] = D; put++; }
+  }
+  starts.push(mix);
+
+  let best = null;
+  for (const a of starts){
+    if (a.reduce((x,y) => x+y, 0) !== size * D) continue;
+    const r = localSearch(a, cands, D);
+    if (!best || r.score.total > best.score.total) best = r;
+  }
+  if (!best) return null;
+
+  /* 念のための検算。ここが合わないと日割りが壊れる */
+  const sum = best.alloc.reduce((a,b) => a+b, 0);
+  const bad = best.alloc.some(v => v < 0 || v > D || !Number.isInteger(v));
+  if (sum !== size * D || bad){
+    console.error("割り当てが壊れています", { sum, want: size*D, alloc: best.alloc });
+    return { broken:true };
+  }
+
+  return { alloc:best.alloc, score:best.score, cands, D };
+}
+
+/* 「何日入れるか」から、実際の日割りを作る。なべを育てる子を先に入れる */
+function buildSchedule(alloc, cands, D){
+  const rem = alloc.slice();
+  const days = [];
+  for (let t = 0; t < D; t++){
+    const left = D - t;
+    const pick = [];
+    /* 残り日数ぶんきっちり必要な子は、必ず今日入れる */
+    for (let i = 0; i < rem.length; i++){
+      if (rem[i] > 0 && rem[i] >= left && pick.length < TEAM_SIZE) pick.push(i);
+    }
+    /* 空いた枠は「なべを育てる子」→「残り日数が多い子」の順で埋める */
+    const rest = rem.map((v,i) => i)
+      .filter(i => rem[i] > 0 && pick.indexOf(i) === -1)
+      .sort((a,b) => (candStat(cands[b],0,0).pot - candStat(cands[a],0,0).pot) || (rem[b] - rem[a]));
+    for (const i of rest){
+      if (pick.length >= TEAM_SIZE) break;
+      pick.push(i);
+    }
+    pick.forEach(i => rem[i]--);
+    days.push(pick);
+  }
+  return days;
+}
+
+function renderAuto(){
+  const box = $("autoResult");
+  const r = optimizeTeam();
+  if (r === null){
+    box.innerHTML = '<p class="empty">先に手持ちのポケモンを入れてください。</p>';
+    return;
+  }
+  if (r.broken){
+    box.innerHTML = `<div class="note" style="border-left-color:var(--bad)">
+      計算がうまくいきませんでした。この結果は使わないでください。
+      お手数ですが、どんな手持ちで起きたか教えてください。</div>`;
+    return;
+  }
+  const { alloc, score, cands, D } = r;
+  const sched = buildSchedule(alloc, cands, D);
+  const label = i => esc(cands[i].nickname || cands[i].name);
+
+  let html = `<div class="best" style="margin-top:12px">
+    <div class="eyebrow">${D}日ぶんの合計エナジー（きのみ＋料理）</div>
+    <div class="name">約 ${Math.round(score.total).toLocaleString()}</div>
+    <div class="why">きのみ 約 ${Math.round(score.berry).toLocaleString()}`;
+  const menuTotal = ([name, cnt]) => {
+    const rr = RECIPES.find(x => x.n === name);
+    return rr ? dishEnergy(rr) * cnt : 0;
+  };
+  const menuList = Object.entries(score.menu.plan).sort((a,b) => menuTotal(b) - menuTotal(a));
+  if (menuList.length > 0){
+    const gain = score.menu.total - score.menu.plain;
+    html += ` ／ 料理 約 ${Math.round(score.menu.total).toLocaleString()}`;
+    html += `<br>うち大成功のぶん 約 ${Math.round(gain).toLocaleString()}`;
+    if (score.menu.chancePct > 0){
+      html += `（料理チャンスSで平均 +${score.menu.chancePct.toFixed(0)}% ／ 大成功する割合 ${(score.menu.successRate*100).toFixed(0)}%）`;
+    }
+    if (sundayOn()) html += `／ 最終日を日曜として計算（なべ2倍・大成功3倍）`;
+    html += `</div></div>`;
+    const cooked = menuList.reduce((a,b) => a + b[1], 0);
+    html += `<h2 style="margin-top:16px">1週間の献立（${D*3}食のうち ${cooked}食）</h2>
+      <div class="scroll"><table>
+      <tr><th>料理</th><th class="num">1回</th><th class="num">回数</th><th class="num">合計</th></tr>` +
+      menuList.map(([name, n]) => {
+        const r = RECIPES.find(x => x.n === name);
+        return `<tr><td>${esc(name)}</td>
+          <td class="num">${dishEnergy(r).toLocaleString()}</td>
+          <td class="num">${n}</td>
+          <td class="num">${(dishEnergy(r)*n).toLocaleString()}</td></tr>`;
+      }).join("") + `</table></div>`;
+    if (cooked < D*3){
+      html += `<p class="hint">残り ${D*3 - cooked} 食は、食材が足りなくて何も作れませんでした。</p>`;
+    }
+  } else {
+    html += ` ／ 料理 0（この編成では1品も作れません）</div></div>`;
+  }
+
+  /* ===== なぜこの料理なのか ===== */
+  if (menuList.length > 0){
+    const topName = menuList[0][0];
+    const topR = RECIPES.find(x => x.n === topName);
+    const times = menuList[0][1];
+
+    /* 食材ごとに「誰が出しているか」を集める */
+    const supply = {};
+    for (let i = 0; i < cands.length; i++){
+      const d = alloc[i];
+      if (!d) continue;
+      const st = candStat(cands[i], score.helpers, (score.healIdx || {})[i] || 0);
+      for (const k in st.ing){
+        (supply[k] = supply[k] || []).push({
+          who: cands[i].nickname || cands[i].name,
+          combo: cands[i].mon.combo,
+          amount: st.ing[k] * d
+        });
+      }
+      if (st.magnetPerDay > 0){
+        for (const k of ING_LIST){
+          (supply[k] = supply[k] || []).push({
+            who: (cands[i].nickname || cands[i].name) + "（食材ゲットS）",
+            combo: "", amount: st.magnetPerDay * d / ING_KINDS
+          });
+        }
+        if (st.plusPerDay > 0){
+          (supply[st.plusIng] = supply[st.plusIng] || []).push({
+            who: (cands[i].nickname || cands[i].name) + "（プラスの追加）",
+            combo: "", amount: st.plusPerDay * d
+          });
+        }
+      }
+    }
+
+    const rows = Object.entries(topR.ings).map(([k, per]) => {
+      const list = (supply[k] || []).filter(x => x.amount >= 1)
+                    .sort((a,b) => b.amount - a.amount);
+      const got = score.have[k] || 0;
+      return { k, per, need: per * times, got, list };
+    }).sort((a,b) => b.per - a.per);
+
+    /* ひとことの理由 */
+    const main = rows.filter(x => x.list.length > 0).slice(0, 2)
+      .map(x => `<b>${esc(x.k)}</b>を${esc(x.list[0].who)}${
+        x.list[0].combo ? "（" + esc(x.list[0].combo) + "）" : ""}`);
+    if (main.length > 0){
+      html += `<div class="note" style="border-left-color:var(--accent)">
+        <b>なぜ「${esc(topName)}」なのか</b><br>
+        ${main.join("、")}が出すので、このメンバーで作りやすい料理です。</div>`;
+    }
+
+    html += `<div class="scroll"><table>
+      <tr><th>必要な食材</th><th class="num">1回</th><th class="num">${times}回ぶん</th>
+          <th class="num">集まる量</th><th>誰が出すか</th></tr>` +
+      rows.map(x => {
+        const ok = x.got >= x.need;
+        const who = x.list.length === 0
+          ? '<span class="lack">出せる子がいません</span>'
+          : x.list.slice(0,3).map(y =>
+              `${esc(y.who)}${y.combo ? "（" + esc(y.combo) + "）" : ""} ${Math.round(y.amount)}`).join("<br>");
+        return `<tr>
+          <td>${esc(x.k)}</td>
+          <td class="num">${x.per}</td>
+          <td class="num">${x.need}</td>
+          <td class="num"${ok ? "" : ' style="color:var(--warn)"'}>${Math.floor(x.got)}</td>
+          <td style="font-size:12px;font-weight:700">${who}</td></tr>`;
+      }).join("") + `</table></div>`;
+  }
+
+  /* 日ごとの編成 */
+  html += `<h2 style="margin-top:16px">何日目に誰を入れるか</h2><div class="scroll"><table>
+    <tr><th>日</th><th>チーム（5匹）</th></tr>` +
+    sched.map((p, t) => `<tr><td>${t+1}日目</td><td>${
+      p.map(i => `<span class="pill${candStat(cands[i],0,0).pot > 0 ? " fav" : ""}">${label(i)}</span>`).join("")
+    }</td></tr>`).join("") + `</table></div>
+    <p class="hint">緑の子は「なべを育てる子（料理パワーアップ持ち）」です。
+       なべを先に大きくするため、早い日に入れています。</p>`;
+
+  html += `<div class="note"><b>つまみ食い</b>は、ねている間にカバンがいっぱいになって
+    <b>食材が入らなくなった割合</b>です（きのみだけカビゴンに直接渡されます）。
+    大きいときは「最大所持数アップ」を持つ子に替えるか、寝顔リボンを進めると減ります。<br>
+    なお、起きている間は<b>こまめに集めている前提</b>で計算しています。<br>
+    入れ替えるとき、その子にたまっていた「発動待ちのスキル」は消えますが、
+    そのぶんまでは数えていません。</div>`;
+
+  /* 何日入れるか */
+  const used = alloc.map((d,i) => [i,d]).filter(x => x[1] > 0).sort((a,b) => b[1]-a[1]);
+  html += `<h2 style="margin-top:16px">1匹ずつの内わけ</h2><div class="scroll"><table>
+    <tr><th>ポケモン</th><th class="num">入れる日数</th><th class="num">げんきの平均</th><th class="num">つまみ食い</th><th class="num">1日のきのみエナジー</th><th>1日に集める食材</th></tr>` +
+    used.map(([i,d]) => {
+      const s = candStat(cands[i], score.helpers, (score.healIdx || {})[i] || 0);
+      const ings = Object.entries(s.ing).sort((a,b)=>b[1]-a[1])
+        .map(([k,v]) => `${esc(k)} ${v.toFixed(1)}`).join("、");
+      const sub = cands[i].nickname
+        ? `<br><span style="font-size:11px;color:var(--faint);font-weight:700">${esc(cands[i].name)}</span>` : "";
+      const en = Math.round(s.avgEnergy || 0);
+      return `<tr><td>${label(i)}${sub}</td>
+        <td class="num">${d}日</td>
+        <td class="num"${en < 60 ? ' style="color:var(--warn)"' : ''}>${en}%</td>
+        <td class="num"${(s.snackRate||0) > 0.15 ? ' style="color:var(--warn)"' : ''}>${
+          Math.round((s.snackRate || 0) * 100)}%</td>
+        <td class="num">${Math.round(s.berry).toLocaleString()}</td>
+        <td style="font-size:12px;font-weight:700">${ings}</td></tr>`;
+    }).join("") + `</table></div>`;
+
+  html += `<div class="note" style="border-left-color:var(--accent)">
+    <b>げんき</b>：このチームだと、1匹あたり1日およそ
+    <b>${Math.round(score.healBase || 0)}</b> のげんきが回復します。
+    げんきが80%を超えているとおてつだいが一番速く（間隔×0.45）、
+    下がるほど遅くなります（60以下で×0.58、40以下で×0.66）。
+    <b>ヒーラー（げんきオールSなど）を入れると、チーム全員が速くなります。</b></div>`;
+
+  html += `<div class="row" style="margin-top:12px">
+    <button class="add" id="applyBtn" style="margin:0">1日目の編成を、下の「自分で選んで試す」に写す</button>
+  </div>`;
+
+  html += `<div class="note"><b>この組み合わせの出し方について。</b>
+    7日×5枠の並べ方は数が多すぎて全部は試せないので、
+    「誰を何日入れるか」を少しずつ入れ替えて良くしていく方法で出しています。
+    ほぼ最適ですが、まれにもう少し良い組み合わせを取りこぼすことがあります。<br>
+    また、おてつだいボーナスとヒーラーの回復量は、日ごとではなく
+    <b>1週間の平均</b>で計算しています。カバンの上限は<b>ねている間だけ</b>計算に入れています。</div>`;
+
+  box.innerHTML = html;
+
+  $("applyBtn").onclick = () => {
+    const first = sched[0];
+    state.mons.forEach(m => { m.use = false; });
+    first.forEach(i => { state.mons[cands[i].index].use = true; });
+    renderMons(); render();
+    window.scrollTo({ top: document.getElementById("mons").offsetTop - 60, behavior:"smooth" });
+  };
+}
+
+/* ====== 何か変わったら、自動で計算し直す ======
+   キーを打つたびに計算すると重いので、少し待ってからまとめて1回だけ動かす */
+let autoTimer = null;
+function scheduleAuto(){
+  const box = $("autoResult");
+  if (state.mons.length === 0){
+    box.innerHTML = '<p class="empty">上で手持ちを読み込むと、ここに答えが出ます。</p>';
+    return;
+  }
+  if (autoTimer !== null) clearTimeout(autoTimer);
+  box.innerHTML = '<p class="empty">いちばん良い組み合わせをさがしています…</p>';
+  autoTimer = setTimeout(() => { autoTimer = null; renderAuto(); }, 180);
+}
+
+/* ====== 起動 ====== */
+document.head.insertAdjacentHTML("beforeend",
+  '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@700;800&display=swap">');
+
+document.body.insertAdjacentHTML("beforeend",
+  '<datalist id="pokelist">' + POKEMON.map(p => `<option value="${esc(p.n)}">`).join("") + '</datalist>');
+
+/* 料理ごとのレシピレベルの入力欄を作る */
+function renderRecipeLvGrid(){
+  const onlyCat = $("lvOnlyCat").checked;
+  const cats = onlyCat ? [state.cat] : ["カレー","サラダ","デザート"];
+  const label = {"カレー":"カレー・シチュー","サラダ":"サラダ","デザート":"デザート・ドリンク"};
+
+  $("recipeLvGrid").innerHTML = cats.map(cat => {
+    const list = RECIPES.filter(r => r.cat === cat).sort((a,b) => b.e - a.e);
+    return `<h2 style="margin:14px 0 6px; font-size:13px;font-weight:700">${esc(label[cat])}（エナジーの高い順）</h2>
+      <div class="lvgrid">` +
+      list.map(r => {
+        const v = recipeLvMap[r.n];
+        return `<div><label title="${esc(r.n)}">${esc(r.n)}
+          <span style="color:var(--faint)">${r.e.toLocaleString()}</span></label>
+          <input type="number" data-lv="${esc(r.n)}" min="1" max="70" step="1"
+                 value="${typeof v === "number" ? v : ""}"
+                 placeholder="${recipeLevel()}"></div>`;
+      }).join("") + `</div>`;
+  }).join("");
+
+  $("recipeLvGrid").querySelectorAll("[data-lv]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const name = inp.dataset.lv;
+      const v = Number(inp.value);
+      if (inp.value === "" || !(v >= 1 && v <= 70)) delete recipeLvMap[name];
+      else recipeLvMap[name] = Math.floor(v);
+      saveRecipeLv();
+      render();
+    });
+  });
+}
+
+loadRecipeLv();
+
+/* 食材の在庫の入力欄を作る */
+$("stockGrid").innerHTML = ING_LIST.map(name =>
+  `<div><label for="st_${esc(name)}">${esc(name)}</label>
+   <input type="number" id="st_${esc(name)}" data-stock="${esc(name)}"
+          value="0" min="0" max="9999" step="1"></div>`).join("");
+$("stockGrid").addEventListener("input", () => render());
+$("stockClear").onclick = () => {
+  document.querySelectorAll("[data-stock]").forEach(el => { el.value = "0"; });
+  render();
+};
+
+/* レシピレベルの選択肢を作る */
+$("recipeLv").innerHTML = Object.keys(RECIPE_LEVEL_BONUS)
+  .map(Number).sort((a,b) => a-b)
+  .map(v => `<option value="${v}"${v===30?" selected":""}>Lv${v}（エナジー +${RECIPE_LEVEL_BONUS[v]}%）</option>`)
+  .join("");
+
+function renderRecipeLv(){
+  const lv = recipeLevel();
+  const fb = fieldBonus();
+  const ev = eventDish();
+  const custom = Object.keys(recipeLvMap).length;
+  const parts = [`未入力の料理はLv${lv}（×${(1 + RECIPE_LEVEL_BONUS[lv]/100).toFixed(2)}）`];
+  if (custom > 0) parts.unshift(`<b>${custom}品は個別に設定ずみ</b>`);
+  if (fb > 0) parts.push(`フィールドボーナス${fb}% ×${(1+fb/100).toFixed(2)}`);
+  if (ev !== 1) parts.push(`イベント ×${ev}`);
+  $("recipeLvView").innerHTML =
+    `<div class="berries"><span class="berry">${parts.join(" ／ ")}</span></div>`;
+}
+
+/* なべ容量の選択肢を作る */
+$("pot").innerHTML = POT_SIZES.map(v =>
+  `<option value="${v}"${v===57?" selected":""}>${v} 個</option>`).join("");
+
+/* いま実際に使える容量を、なべの欄の下に出す */
+function renderPotView(){
+  const base = Number($("pot").value) || 57;
+  const add  = Number($("potAdd").value) || 0;
+  const cap  = potCapacity();
+  const parts = [`なべ容量 ${base}`];
+  if (add > 0) parts.push(`料理パワーアップ +${add}`);
+  if (hasTicket()) parts.push("いいキャンプチケット ×1.5");
+  $("potView").innerHTML =
+    `<div class="berries"><span class="berry">${parts.join(" ／ ")}
+      → <b>いま入れられるのは ${cap} 個</b></span></div>`;
+}
+
+buildFieldSelect();
+renderBerries();
+buildCats();
+renderMons();
+renderPotView();
+renderRecipeLv();
+renderRecipeLvGrid();
+$("recipeLv").addEventListener("change", () => { renderRecipeLv(); renderRecipeLvGrid(); render(); });
+$("lvOnlyCat").addEventListener("change", renderRecipeLvGrid);
+$("lvClear").onclick = () => {
+  recipeLvMap = {}; saveRecipeLv(); renderRecipeLvGrid(); render();
+};
+$("sunday").addEventListener("change", () => { renderPotView(); render(); });
+$("fieldBonus").addEventListener("input", () => { renderRecipeLv(); render(); });
+["eventDish","eventSkill"].forEach(id =>
+  $(id).addEventListener("input", () => { renderRecipeLv(); render(); }));
+$("addBtn").onclick = addMon;
+$("importBtn").onclick = importCsv;
+$("monSearch").addEventListener("input", () => { listUi.search = $("monSearch").value; renderMons(); });
+$("monSort").addEventListener("change", () => { listUi.sort = $("monSort").value; renderMons(); });
+$("onlyUse").addEventListener("change", () => { listUi.onlyUse = $("onlyUse").checked; renderMons(); });
+$("clearBtn").onclick = () => {
+  state.mons = []; $("importMsg").innerHTML = ""; renderMons(); render();
+};
+["sleepScore","days","potAdd"].forEach(id => $(id).addEventListener("input", () => { renderPotView(); render(); }));
+["pot","ticket"].forEach(id => $(id).addEventListener("change", () => { renderPotView(); render(); }));
+
+/* 最初は空の状態から始める（読み込むか、自分で足してもらう） */
+renderMons();
+render();
+</script>

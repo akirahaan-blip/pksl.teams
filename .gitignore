@@ -1,0 +1,17 @@
+# 作業中にできる一時ファイル
+*.bak
+*.tmp
+~$*
+
+# OS が勝手に作るもの
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# エディタの設定
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
