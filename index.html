@@ -164,6 +164,18 @@ details.adv summary{
 }
 details.adv summary::before{content:"▸ "; }
 details.adv[open] summary::before{content:"▾ "; }
+
+/* 見つけてほしい見出しは、色と背景をつけて目立たせる */
+details.adv summary.pick{
+  font-size:14px; color:var(--accent);
+  background:var(--accent-soft); border:1px solid var(--accent);
+  border-radius:10px; padding:9px 12px; display:block;
+}
+details.adv summary.pick small{
+  font-size:11.5px; color:var(--dim); margin-left:6px;
+}
+details.adv summary.pick:hover{filter:brightness(1.06)}
+details.adv[open] summary.pick{margin-bottom:6px}
 details.adv .row{margin-top:8px}
 
 button.add{
@@ -350,11 +362,12 @@ footer a{color:var(--faint)}
     <button class="add" id="clearBtn" style="margin:0; flex:0 1 140px">全部けす</button>
   </div>
   <div id="importMsg" style="margin-top:8px"></div>
+  <div class="berries" id="boxInfo" style="margin-top:10px"></div>
   <p class="hint">ボックスを<b>まるごと</b>読み込んで大丈夫です。この中から一番いい組み合わせを自動でさがします。<br>
      ※ミュウとダークライは食材の仕組みが特別なので、このツールでは扱えません。</p>
 
   <details class="adv" id="shotBox" style="margin-top:12px">
-    <summary>スクリーンショットから1匹ずつ読み込む（個体値計算機を使っていない人向け）</summary>
+    <summary class="pick">📸 スクリーンショットから読み取る<small>（個体値計算機を使っていない人向け）</small></summary>
     <ol class="hint" style="margin:8px 0 0; padding-left:1.4em; line-height:2">
       <li>ポケモンスリープで、読み込みたいポケモンの<b>ステータス画面</b>のスクショを撮る</li>
       <li>下の枠にその画像を<b>ドラッグ＆ドロップ</b>するか、枠を押してファイルを選ぶ</li>
@@ -379,7 +392,7 @@ footer a{color:var(--faint)}
   </details>
 
   <details class="adv" style="margin-top:12px">
-    <summary>ナイトキャップピカチュウを使っている（Pokémon GO Plus+）</summary>
+    <summary class="pick">⚡ ナイトキャップピカチュウを使っている<small>（Pokémon GO Plus+）</small></summary>
     <p class="hint" style="margin-top:8px">
       <b>チームの5匹とは別に働いてくれる6匹目</b>です（編成の枠を使いません）。
       使っている場合は「なつき度」を入れてください。
@@ -2395,6 +2408,52 @@ function recipeLevel(){
   return Math.min(Math.max(v, 1), 70);
 }
 
+/* ====== ポケモンボックス ======
+   読み込んだポケモンを、このパソコンに覚えさせておく。
+   次に開いたときも残っているので、毎回スクショを撮り直さなくてよい。 */
+const BOX_KEY = "ryoriNaviBox";
+let boxTimer = null;
+
+function saveBox(){
+  if (boxTimer !== null) clearTimeout(boxTimer);
+  boxTimer = setTimeout(() => {
+    boxTimer = null;
+    try { localStorage.setItem(BOX_KEY, JSON.stringify(state.mons)); } catch(e){}
+    renderBoxInfo();
+  }, 400);
+}
+
+function loadBox(){
+  try {
+    const raw = localStorage.getItem(BOX_KEY);
+    const arr = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(arr) && arr.length){
+      /* 古い版で保存したものにも、足りない項目を補っておく */
+      state.mons = arr.map(m => Object.assign({
+        use:false, name:"", level:50, combo:"AAA", nickname:"",
+        natureSpeed:0, subSpeed:0, natureIng:0, subIng:0, natureSkill:0, subSkill:0,
+        natureEnergy:0, recoveryBonus:0, inventoryUp:0,
+        skillLevel:6, ribbon:0, helpBonus:false, berryS:false,
+        shotIngs:null, shotCounts:null, shotSubs:null
+      }, m));
+      return true;
+    }
+  } catch(e){}
+  return false;
+}
+
+function renderBoxInfo(){
+  const el = $("boxInfo");
+  if (!el) return;
+  const n = state.mons.length;
+  if (n === 0){
+    el.innerHTML = `<span class="berry" style="opacity:.7">ボックスは空です</span>`;
+    return;
+  }
+  el.innerHTML = `<span class="berry">🎒 ボックスに <b>${n}匹</b> 保存中
+    <span style="color:var(--faint); font-size:11.5px">（このパソコンに残ります）</span></span>`;
+}
+
 /* 料理ごとのレシピレベル。パソコンに覚えさせておく */
 const LV_KEY = "ryoriNaviRecipeLv";
 let recipeLvMap = {};
@@ -3058,7 +3117,7 @@ function render(){
 
 /* 手動の結果を出したあと、自動の答えも組み直す */
 const renderManual = render;
-render = function(){ renderManual(); scheduleAuto(); };
+render = function(){ renderManual(); saveBox(); scheduleAuto(); };
 
 /* ================================================================
    自動でチームを組む
@@ -3755,7 +3814,14 @@ $("clearBtn").onclick = () => {
 ["sleepScore","days","potAdd"].forEach(id => $(id).addEventListener("input", () => { renderPotView(); render(); }));
 ["pot","ticket"].forEach(id => $(id).addEventListener("change", () => { renderPotView(); render(); }));
 
-/* 最初は空の状態から始める（読み込むか、自分で足してもらう） */
+/* 前に保存したポケモンがあれば読み出す */
+const hadBox = loadBox();
 renderMons();
+renderBoxInfo();
 render();
+if (hadBox){
+  $("importMsg").innerHTML = `<div class="note" style="border-left-color:var(--good)">
+    前に読み込んだ <b>${state.mons.length}匹</b> をボックスから戻しました。<br>
+    入れ直したいときは「全部けす」を押してから読み込んでください。</div>`;
+}
 </script>
