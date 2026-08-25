@@ -15,3 +15,5 @@ desktop.ini
 # Python
 __pycache__/
 *.pyc
+bari.png
+*.png.url

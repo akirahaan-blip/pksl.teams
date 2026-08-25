@@ -1736,6 +1736,85 @@ function loadTesseract(){
   return tesseractLoading;
 }
 
+/* 食材アイコンの下に出ている「×2」などの数字を読む。
+   アイコンの色より数字のほうが確実（隠れていても、グレーアウトしていても読める） */
+async function readIngredientCounts(canvas, layout, T){
+  const worker = await T.createWorker("eng");
+  await worker.setParameters({
+    tessedit_char_whitelist: "0123456789xX",
+    tessedit_pageseg_mode: "7"          /* 1行として読む */
+  });
+  const counts = [];
+  try {
+    for (const b of (layout.ingredientSlots || [])){
+      if (!b){ counts.push(null); continue; }
+      const h = b.y1 - b.y0, w = b.x1 - b.x0;
+      const y0 = Math.round(b.y1 - h * 0.35);
+      const sc = 3;
+      const c = document.createElement("canvas");
+      c.width = Math.round(w * sc); c.height = Math.round((b.y1 - y0) * sc);
+      const g = c.getContext("2d", { willReadFrequently: true });
+      g.drawImage(canvas, b.x0, y0, w, b.y1 - y0, 0, 0, c.width, c.height);
+      /* 白黒にすると数字が読みやすくなる */
+      const d = g.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < d.data.length; i += 4){
+        const v = d.data[i]*0.3 + d.data[i+1]*0.59 + d.data[i+2]*0.11;
+        d.data[i] = d.data[i+1] = d.data[i+2] = (v < 150 ? 0 : 255);
+      }
+      g.putImageData(d, 0, 0);
+      const { data } = await worker.recognize(c);
+      const m = String(data.text || "").replace(/\s+/g, "").match(/(\d+)/);
+      counts.push(m ? Number(m[1]) : null);
+    }
+  } finally {
+    await worker.terminate();
+  }
+  return counts;
+}
+
+/* 読み取った個数から、AAA などの食材構成を割り出す。
+   1つに決まらなければ null を返す */
+function comboFromCounts(p, counts){
+  if (!p || !counts) return null;
+  const idx = { A:0, B:1, C:2 };
+  const hits = [];
+  for (const combo of COMBOS){
+    let ok = true;
+    for (let sl = 0; sl < 3; sl++){
+      const c = counts[sl];
+      if (c == null) continue;
+      const g = p.ings[idx[combo[sl]]];
+      if (!g || g[sl + 1] !== c){ ok = false; break; }
+    }
+    if (ok) hits.push(combo);
+  }
+  return hits.length === 1 ? hits[0] : null;
+}
+
+/* スクショから読んだサブスキルを、レベルの解放を見ながら反映する。
+   Lv.70/80 のサブスキルは、そのレベルに届いていなければ効かない */
+function applyShotSubs(m){
+  if (!m.shotSubs) return;
+  let subSpeed = 0, subIng = 0, subSkill = 0, inventoryUp = 0, recoveryBonus = 0;
+  let helpBonus = false, berryS = false;
+  m.shotSubs.forEach((name, k) => {
+    if (!name) return;
+    if (m.level < SUBSKILL_LEVELS[k]) return;
+    const v = SUBSKILLS[name];
+    if (!v) return;
+    if (v[0] === "speed") subSpeed += v[1];
+    else if (v[0] === "ing") subIng += v[1];
+    else if (v[0] === "skill") subSkill += v[1];
+    else if (v[0] === "inventory") inventoryUp += v[1];
+    else if (v[0] === "recovery") recoveryBonus += 1;
+    else if (v[0] === "helpbonus") helpBonus = true;
+    else if (v[0] === "berry") berryS = true;
+  });
+  m.subSpeed = subSpeed; m.subIng = subIng; m.subSkill = subSkill;
+  m.inventoryUp = inventoryUp; m.recoveryBonus = recoveryBonus;
+  m.helpBonus = helpBonus; m.berryS = berryS;
+}
+
 /* 読み取った食材3つから、AAA などの食材構成を組み立てる */
 function comboFromNames(p, names){
   const letters = ["A","B","C"];
@@ -1828,8 +1907,23 @@ async function readShot(file){
     const p = readName ? POKE_BY_NAME[readName] : null;
     const nameOk = !!p;
 
+    /* アイコンの下の「×2」などの数字を読む。色より確実 */
+    shotMsg("食材の数を読んでいます…");
+    const cv2 = document.createElement("canvas");
+    cv2.width = img.naturalWidth; cv2.height = img.naturalHeight;
+    cv2.getContext("2d", { willReadFrequently: true }).drawImage(img, 0, 0);
+    let counts = [null, null, null];
+    try { counts = await readIngredientCounts(cv2, window.PSVision.detectLayout(cv2), tess); }
+    catch(e){ /* 読めなくても先に進む */ }
+
     const ingNames = read.ingredients.map(x => x && x.name).filter(Boolean);
-    let combo = (p && ingNames.length === 3) ? comboFromNames(p, ingNames) : null;
+    /* まず数字から決める。決まらなければアイコンの色から */
+    let combo = comboFromCounts(p, counts);
+    let comboWay = combo ? "数字" : "";
+    if (!combo && p && ingNames.length === 3){
+      combo = comboFromNames(p, ingNames);
+      if (combo) comboWay = "アイコン";
+    }
     const comboOk = combo !== null;
     if (!comboOk) combo = "AAA";
     const name = nameOk ? readName : "";
@@ -1837,34 +1931,26 @@ async function readShot(file){
     const nat = (read.nature && NATURES[read.nature.name])
       || { speed:0, ing:0, skill:0, energy:0 };
 
-    let subSpeed = 0, subIng = 0, subSkill = 0, inventoryUp = 0, recoveryBonus = 0;
-    let helpBonus = false, berryS = false;
-    const gotSubs = [];
-    for (const sk of (read.subSkills || [])){
-      if (!sk || !sk.name) continue;
-      gotSubs.push(sk.name);
-      const v = SUBSKILLS[sk.name];
-      if (!v) continue;
-      if (v[0] === "speed") subSpeed += v[1];
-      else if (v[0] === "ing") subIng += v[1];
-      else if (v[0] === "skill") subSkill += v[1];
-      else if (v[0] === "inventory") inventoryUp += v[1];
-      else if (v[0] === "recovery") recoveryBonus += 1;
-      else if (v[0] === "helpbonus") helpBonus = true;
-      else if (v[0] === "berry") berryS = true;
-    }
+    /* サブスキルは枠の順（Lv10/25/50/70/80）に覚えておく。
+       レベルが届いていない枠は効かせない。レベルを直したら計算し直す */
+    const shotSubs = (read.subSkills || []).map(sk => (sk && sk.name) || null);
+    const gotSubs = shotSubs.filter(Boolean);
 
-    state.mons.push({
+    const mon = {
       use: true, name, level: 50, combo,
       nickname: nameOk ? "" : String(readName || "").slice(0, 12),
-      /* あとで種類を選んだときに、食材構成を組み立て直すために覚えておく */
+      /* あとで種類やレベルを直したときに、組み立て直すために覚えておく */
       shotIngs: ingNames.length === 3 ? ingNames : null,
-      natureSpeed: nat.speed, subSpeed,
-      natureIng: nat.ing, subIng,
-      natureSkill: nat.skill, subSkill,
-      natureEnergy: nat.energy, recoveryBonus, inventoryUp,
-      skillLevel: 6, ribbon: 0, helpBonus, berryS
-    });
+      shotCounts: counts,
+      shotSubs: shotSubs.some(Boolean) ? shotSubs : null,
+      natureSpeed: nat.speed, subSpeed: 0,
+      natureIng: nat.ing, subIng: 0,
+      natureSkill: nat.skill, subSkill: 0,
+      natureEnergy: nat.energy, recoveryBonus: 0, inventoryUp: 0,
+      skillLevel: 6, ribbon: 0, helpBonus: false, berryS: false
+    };
+    applyShotSubs(mon);
+    state.mons.push(mon);
 
     /* 追加した行を開いた状態にして、レベルとリボンを入れてもらう */
     listUi.open = state.mons.length - 1;
@@ -1884,15 +1970,27 @@ async function readShot(file){
         <b>下の行の「ポケモン」欄に、種類の名前を入れてください。</b>
         入れれば食材構成も自動で決まります。</span><br>`;
     }
-    if (ingNames.length === 3){
-      m += `読み取れた食材：${ingNames.map(esc).join("・")}`
-         + (comboOk ? ` → <b>${combo}</b>` : "（種類が決まれば構成も決まります）") + `<br>`;
+    const cTxt = counts.map(c => c == null ? "?" : "×" + c).join(" ");
+    if (comboOk){
+      m += `食材構成：<b>${combo}</b>（${comboWay}から判定／読めた数 ${esc(cTxt)}）<br>`;
+    } else if (!nameOk){
+      m += `食材の数：${esc(cTxt)}（種類が決まれば構成も決まります）<br>`;
     } else {
-      m += `<span style="color:var(--warn)">食材が読み取れませんでした（${ingNames.length}／3個）。手で選んでください。</span><br>`;
+      m += `<span style="color:var(--warn)">食材構成が決められませんでした
+        （読めた数 ${esc(cTxt)}）。手で選んでください。</span><br>`;
     }
     m += read.nature ? `せいかく：${esc(read.nature.name)}<br>` : `<span style="color:var(--warn)">せいかく：読み取れず</span><br>`;
-    m += gotSubs.length ? `サブスキル：${gotSubs.map(esc).join("・")}<br>`
-                        : `<span style="color:var(--warn)">サブスキル：読み取れず。手で入れてください。</span><br>`;
+    if (gotSubs.length){
+      const locked = (shotSubs || []).filter((n,k) => n && 50 < SUBSKILL_LEVELS[k]);
+      m += `サブスキル：${gotSubs.map(esc).join("・")}<br>`;
+      if (locked.length){
+        m += `<span style="color:var(--warn)">うち ${locked.map(esc).join("・")} は
+          Lv.${SUBSKILL_LEVELS[(shotSubs||[]).indexOf(locked[0])]} からなので、
+          いまのレベル（50）ではまだ効きません。レベルを直せば自動で反映します。</span><br>`;
+      }
+    } else {
+      m += `<span style="color:var(--warn)">サブスキル：読み取れず。手で入れてください。</span><br>`;
+    }
     m += `<b>レベルと寝顔リボンは読み取れません。</b>下の一覧で開いている行に入れてください
           （いまレベル50で入れてあります）。`;
     shotMsg(m, nameOk && comboOk ? "ok" : "warn");
@@ -2186,14 +2284,20 @@ function renderMons(){
       inp.addEventListener(ev, () => {
         const before = isCookingUp(state.mons[i].name);
         if (f === "name" || f === "combo") state.mons[i][f] = inp.value;
-        /* スクショから読んだ食材が残っていれば、種類が決まった時点で構成を決める */
+        const m2 = state.mons[i];
+        /* スクショから読んだものが残っていれば、種類やレベルに合わせて決め直す */
         if (f === "name"){
-          const m2 = state.mons[i];
           const q = POKE_BY_NAME[inp.value];
-          if (q && m2.shotIngs){
-            const c = comboFromNames(q, m2.shotIngs);
+          if (q){
+            const c = comboFromCounts(q, m2.shotCounts)
+                   || (m2.shotIngs ? comboFromNames(q, m2.shotIngs) : null);
             if (c){ m2.combo = c; renderMons(); render(); return; }
           }
+        }
+        if (f === "level" && m2.shotSubs){
+          /* レベルが変わると、使えるサブスキルの数が変わる */
+          applyShotSubs(m2);
+          renderMons(); render(); return;
         }
         else if (f === "helpBonus" || f === "berryS") state.mons[i][f] = (inp.value === "1");
         else state.mons[i][f] = Number(inp.value);
