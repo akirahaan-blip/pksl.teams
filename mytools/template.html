@@ -341,6 +341,38 @@ footer a{color:var(--faint)}
   <div id="importMsg" style="margin-top:8px"></div>
   <p class="hint">ボックスを<b>まるごと</b>読み込んで大丈夫です。この中から一番いい組み合わせを自動でさがします。<br>
      ※ミュウとダークライは食材の仕組みが特別なので、このツールでは扱えません。</p>
+
+  <details class="adv" style="margin-top:12px">
+    <summary>ナイトキャップピカチュウを使っている（Pokémon GO Plus+）</summary>
+    <p class="hint" style="margin-top:8px">
+      <b>チームの5匹とは別に働いてくれる6匹目</b>です（編成の枠を使いません）。
+      使っている場合は「なつき度」を入れてください。
+    </p>
+    <div class="row">
+      <div>
+        <label for="ncOn">使っているか</label>
+        <select id="ncOn">
+          <option value="0">使っていない</option>
+          <option value="1">使っている</option>
+        </select>
+      </div>
+      <div>
+        <label for="ncLv">なつき度</label>
+        <select id="ncLv"></select>
+      </div>
+      <div>
+        <label for="ncStop">1日に回すポケストップの数</label>
+        <select id="ncStop">
+          <option value="0">0〜7</option>
+          <option value="1">8〜15</option>
+          <option value="2">16〜23</option>
+          <option value="3">24〜31</option>
+          <option value="4">32以上</option>
+        </select>
+      </div>
+    </div>
+    <div id="ncView" style="margin-top:10px"></div>
+  </details>
 </section>
 
 <section>
@@ -1172,6 +1204,52 @@ function teamHealing(list, helpBonusCount){
   return { each };
 }
 
+/* ====== ナイトキャップピカチュウ ======
+   チームの枠を使わない6匹目。げんきの概念がなく、表の時間どおりに働く。
+   出典: Wiki*「PokémonGOPlus+」 */
+function nightcapOn(){ return $("ncOn") && $("ncOn").value === "1"; }
+
+/* 1日ぶんの働き（きのみエナジーと食材）を返す */
+function nightcapPerDay(){
+  if (!nightcapOn()) return null;
+  const lv = Math.min(Math.max(Number($("ncLv").value) || 20, 1), 20);
+  const row = NIGHTCAP[lv];
+  if (!row) return null;
+
+  const [interval, bagMax, berryNum, a, b, c] = row;
+  const counts = [a, b, c];
+  const helps = 86400 / interval;
+  const rate = (lv >= 19) ? NIGHTCAP_INFO.ingRate.high : NIGHTCAP_INFO.ingRate.base;
+
+  /* 使える食材枠だけで、選ばれる比を割り振る */
+  const w = NIGHTCAP_INFO.slotWeight.map((x, i) => counts[i] > 0 ? x : 0);
+  const wSum = w.reduce((p, q) => p + q, 0);
+
+  const ing = {};
+  if (wSum > 0){
+    for (let i = 0; i < 3; i++){
+      if (w[i] <= 0) continue;
+      const name = NIGHTCAP_INFO.ings[i];
+      ing[name] = (ing[name] || 0) + helps * rate * (w[i] / wSum) * counts[i];
+    }
+  }
+
+  /* きのみ。ウブのみ（でんき）で、なつき度をレベルとして計算する */
+  const t = NIGHTCAP_INFO.type;
+  const fav = favTypes().indexOf(t) !== -1;
+  const ex = exEffect();
+  const favMul = fav ? ((ex && ex.berryMul) ? ex.berryMul : 2) : 1;
+  const per = berryEnergy(t, lv) * favMul;
+  let berry = helps * (1 - rate) * berryNum * per;
+
+  /* 1日1回、ポケストップを回した数でもらえるぶん */
+  const si = Math.min(Math.max(Number($("ncStop").value) || 0, 0), 4);
+  const stopBerries = NIGHTCAP_INFO.stopBerries[si][1];
+  berry += stopBerries * per;
+
+  return { lv, helps, rate, ing, berry, bagMax, berryNum, stopBerries, fav, per };
+}
+
 /* カバン（最大所持数）の上限。
    出典: PokemonIv.ts　基本値 + 5×進化回数 + 寝顔リボン + 最大所持数アップ×6、
    いいキャンプチケットで ×1.2 */
@@ -1363,7 +1441,13 @@ function gatherIngredients(){
     }
   }
 
-  return { have, perMon, days };
+  /* ナイトキャップピカチュウ */
+  const nc = nightcapPerDay();
+  if (nc){
+    for (const k in nc.ing) have[k] = (have[k] || 0) + nc.ing[k] * days;
+  }
+
+  return { have, perMon, days, nc };
 }
 
 /* きのみエナジー（目安）。式は Berry.ts に合わせている */
@@ -1790,11 +1874,18 @@ function evalAlloc(alloc, cands, D){
     capByDay.push(capFor(base, add0, grown, isSundayDay(t - 1, D)));
   }
 
+  /* ナイトキャップピカチュウ（チームの枠を使わないので、毎日ぶんそのまま足す） */
+  const nc = nightcapPerDay();
+  if (nc){
+    berry += nc.berry * D;
+    for (const k in nc.ing) have[k] = (have[k] || 0) + nc.ing[k] * D;
+  }
+
   /* 1週間の献立を組む */
   const menu = planCooking(have, capByDay, D, chancePerDay, stockOf());
 
   return { total: berry + menu.total, berry, menu, have, helpers, capByDay, chancePerDay,
-           healIdx, healBase };
+           healIdx, healBase, nc };
 }
 
 /* 1日ぶんを別の子に移してみて、良くなるなら採用する、を繰り返す */
@@ -2054,6 +2145,17 @@ function renderAuto(){
         <td style="font-size:12px;font-weight:700">${ings}</td></tr>`;
     }).join("") + `</table></div>`;
 
+  if (score.nc){
+    const n = score.nc;
+    html += `<div class="note" style="border-left-color:var(--accent)">
+      <b>ナイトキャップピカチュウ（なつき度${n.lv}）</b>も計算に入っています。
+      チームの枠を使わない6匹目です。<br>
+      1日 <b>${n.helps.toFixed(1)}回</b>おてつだい →
+      きのみエナジー <b>約 ${Math.round(n.berry).toLocaleString()}</b>／日
+      （ウブのみ${n.fav ? "＝今週の好み！" : ""}、ポケストップぶん ${n.stopBerries}個こみ）<br>
+      食材 ${Object.entries(n.ing).map(([k,v]) => `${esc(k)} ${v.toFixed(1)}`).join("、")}／日</div>`;
+  }
+
   html += `<div class="note" style="border-left-color:var(--accent)">
     <b>げんき</b>：このチームだと、1匹あたり1日およそ
     <b>${Math.round(score.healBase || 0)}</b> のげんきが回復します。
@@ -2151,6 +2253,19 @@ $("stockClear").onclick = () => {
   render();
 };
 
+/* ナイトキャップピカチュウの「なつき度」の選択肢を作る */
+$("ncLv").innerHTML = Object.keys(NIGHTCAP).map(Number).sort((a,b) => a-b)
+  .map(v => `<option value="${v}"${v===20?" selected":""}>なつき度 ${v}</option>`).join("");
+
+function renderNc(){
+  const n = nightcapPerDay();
+  if (!n){ $("ncView").innerHTML = ""; return; }
+  $("ncView").innerHTML =
+    `<div class="berries"><span class="berry">1日 ${n.helps.toFixed(1)}回おてつだい ／
+      きのみ 約 ${Math.round(n.berry).toLocaleString()} ／
+      ${Object.entries(n.ing).map(([k,v]) => `${esc(k)} ${v.toFixed(1)}`).join("、")}</span></div>`;
+}
+
 /* レシピレベルの選択肢を作る */
 $("recipeLv").innerHTML = Object.keys(RECIPE_LEVEL_BONUS)
   .map(Number).sort((a,b) => a-b)
@@ -2205,6 +2320,9 @@ $("fieldBonus").addEventListener("input", () => { renderRecipeLv(); render(); })
   $(id).addEventListener("input", () => { renderRecipeLv(); render(); }));
 $("addBtn").onclick = addMon;
 $("importBtn").onclick = importCsv;
+["ncOn","ncLv","ncStop"].forEach(id =>
+  $(id).addEventListener("change", () => { renderNc(); render(); }));
+renderNc();
 $("monSearch").addEventListener("input", () => { listUi.search = $("monSearch").value; renderMons(); });
 $("monSort").addEventListener("change", () => { listUi.sort = $("monSort").value; renderMons(); });
 $("onlyUse").addEventListener("change", () => { listUi.onlyUse = $("onlyUse").checked; renderMons(); });
