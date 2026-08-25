@@ -132,6 +132,13 @@ select:focus,input:focus{outline:2px solid var(--accent); outline-offset:1px}
 .lvgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:8px}
 .lvgrid label{font-size:12px; margin:0 0 2px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;font-weight:700}
 .lvgrid input{padding:5px 8px; font-size:13px;font-weight:700}
+#shotDrop{
+  border:2px dashed var(--line); border-radius:12px; padding:26px 14px;
+  text-align:center; color:var(--dim); font-size:13px; cursor:pointer;
+  background:var(--surface2); margin-top:8px; transition:.12s;
+}
+#shotDrop:hover,#shotDrop.over{border-color:var(--accent); color:var(--accent)}
+#shotDrop.busy{opacity:.6; cursor:progress}
 #stockGrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px}
 #stockGrid label{font-size:12px; margin:0 0 2px;font-weight:700}
 #stockGrid input{padding:5px 8px; font-size:13px;font-weight:700}
@@ -342,6 +349,27 @@ footer a{color:var(--faint)}
   <p class="hint">ボックスを<b>まるごと</b>読み込んで大丈夫です。この中から一番いい組み合わせを自動でさがします。<br>
      ※ミュウとダークライは食材の仕組みが特別なので、このツールでは扱えません。</p>
 
+  <details class="adv" id="shotBox" style="margin-top:12px">
+    <summary>スクリーンショットから1匹ずつ読み込む（個体値計算機を使っていない人向け）</summary>
+    <ol class="hint" style="margin:8px 0 0; padding-left:1.4em; line-height:2">
+      <li>ポケモンスリープで、読み込みたいポケモンの<b>ステータス画面</b>のスクショを撮る</li>
+      <li>下の枠にその画像を<b>ドラッグ＆ドロップ</b>するか、枠を押してファイルを選ぶ</li>
+      <li>読み取れたら一覧に追加されるので、<b>レベルと寝顔リボンだけ手で入れて</b>ください</li>
+    </ol>
+    <div id="shotDrop" tabindex="0">
+      ここに画像をドラッグ＆ドロップ<br>
+      <span style="font-size:12px">（押してファイルを選ぶこともできます）</span>
+    </div>
+    <input type="file" id="shotFile" accept="image/*" style="display:none">
+    <div id="shotMsg" style="margin-top:8px"></div>
+    <p class="hint">
+      <b>読み取れるもの</b>：ポケモン名・食材3枠（AAAなど）・せいかく・サブスキル5枠<br>
+      <b>読み取れないもの</b>：レベル・スキルLv・寝顔リボン → 追加したあとに手で入れてください<br>
+      ※文字を読む部分はインターネットから部品を取ってくるので、<b>ネットにつながっている必要があります</b>。
+      最初の1回だけ少し時間がかかります。
+    </p>
+  </details>
+
   <details class="adv" style="margin-top:12px">
     <summary>ナイトキャップピカチュウを使っている（Pokémon GO Plus+）</summary>
     <p class="hint" style="margin-top:8px">
@@ -452,6 +480,9 @@ footer a{color:var(--faint)}
 <script>
 /* ====== データ（mytools/build.py が差し込みます） ====== */
 /*__DATA__*/
+
+/* ====== スクショ読み取り（pokesleep-vision を1つにまとめたもの） ====== */
+/*__VISION__*/
 
 /* きのみの基礎エナジー（タイプごと）。出典: pokesleep-tool の Berry.ts */
 const BERRY_BASE = {
@@ -611,6 +642,147 @@ function addMon(){
   const sb = $("monSearch"); if (sb) sb.value = "";
   const ou = $("onlyUse"); if (ou) ou.checked = false;
   renderMons(); render();
+}
+
+/* ====== スクリーンショットから1匹読み込む ======
+   読み取りは pokesleep-vision（自作）が担当。文字を読む部分は Tesseract.js を使う。
+   読み取れるのは「ポケモン名・食材3枠・せいかく・サブスキル5枠」。
+   レベル・スキルLv・寝顔リボンは読めないので、あとから手で入れてもらう。 */
+let tesseractLoading = null;
+
+/* Tesseract.js をネットから読み込む（最初の1回だけ） */
+function loadTesseract(){
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (tesseractLoading) return tesseractLoading;
+  tesseractLoading = new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    el.onload = () => window.Tesseract ? resolve(window.Tesseract)
+                                       : reject(new Error("読み込めませんでした"));
+    el.onerror = () => reject(new Error("ネットにつながっていないかもしれません"));
+    document.head.appendChild(el);
+  });
+  return tesseractLoading;
+}
+
+/* 読み取った食材3つから、AAA などの食材構成を組み立てる */
+function comboFromNames(p, names){
+  const letters = ["A","B","C"];
+  let combo = "";
+  for (let sl = 0; sl < 3; sl++){
+    const want = names[sl];
+    let found = -1;
+    for (let k = 0; k < 3; k++){
+      if (p.ings[k] && p.ings[k][0] === want){ found = k; break; }
+    }
+    if (found === -1) return null;
+    if (sl === 0 && found !== 0) return null;
+    if (sl === 1 && found > 1)  return null;
+    combo += letters[found];
+  }
+  return combo;
+}
+
+function shotMsg(html, kind){
+  const color = kind === "ok" ? "var(--good)" : kind === "ng" ? "var(--bad)" : "var(--warn)";
+  $("shotMsg").innerHTML = `<div class="note" style="border-left-color:${color}">${html}</div>`;
+}
+
+async function readShot(file){
+  const drop = $("shotDrop");
+  if (!file || !file.type.startsWith("image/")){
+    shotMsg("画像ファイルを入れてください。", "ng");
+    return;
+  }
+  if (!window.PSVision){
+    shotMsg("読み取りの部品が入っていません。作り直しが必要です。", "ng");
+    return;
+  }
+
+  drop.classList.add("busy");
+  shotMsg("準備しています…（初めてのときは少し時間がかかります）");
+
+  try {
+    const tess = await loadTesseract();
+    await window.PSVision.initOCR(
+      (m) => { if (m && m.status) shotMsg("読み取り中… " + esc(m.status)); }, tess);
+
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await img.decode();
+
+    shotMsg("画像を読んでいます…");
+    const read = await window.PSVision.readStatusScreen(img, {
+      pokemonNames: Object.keys(POKE_BY_NAME)
+    });
+    URL.revokeObjectURL(img.src);
+
+    /* ---- 読み取れたものを、このツールの形に直す ---- */
+    const name = read.pokemonName;
+    const p = name ? POKE_BY_NAME[name] : null;
+    if (!p){
+      shotMsg(`ポケモンの名前が読み取れませんでした。<br>
+        （読めた文字：${esc(String(read.pokemonName || "なし"))}）<br>
+        画面全体がうつっているスクショか確かめてください。`, "ng");
+      return;
+    }
+
+    const ingNames = read.ingredients.map(x => x && x.name).filter(Boolean);
+    let combo = (ingNames.length === 3) ? comboFromNames(p, ingNames) : null;
+    const comboOk = combo !== null;
+    if (!comboOk) combo = "AAA";
+
+    const nat = (read.nature && NATURES[read.nature.name])
+      || { speed:0, ing:0, skill:0, energy:0 };
+
+    let subSpeed = 0, subIng = 0, subSkill = 0, inventoryUp = 0, recoveryBonus = 0;
+    let helpBonus = false, berryS = false;
+    const gotSubs = [];
+    for (const sk of (read.subSkills || [])){
+      if (!sk || !sk.name) continue;
+      gotSubs.push(sk.name);
+      const v = SUBSKILLS[sk.name];
+      if (!v) continue;
+      if (v[0] === "speed") subSpeed += v[1];
+      else if (v[0] === "ing") subIng += v[1];
+      else if (v[0] === "skill") subSkill += v[1];
+      else if (v[0] === "inventory") inventoryUp += v[1];
+      else if (v[0] === "recovery") recoveryBonus += 1;
+      else if (v[0] === "helpbonus") helpBonus = true;
+      else if (v[0] === "berry") berryS = true;
+    }
+
+    state.mons.push({
+      use: true, name, level: 50, combo, nickname: "",
+      natureSpeed: nat.speed, subSpeed,
+      natureIng: nat.ing, subIng,
+      natureSkill: nat.skill, subSkill,
+      natureEnergy: nat.energy, recoveryBonus, inventoryUp,
+      skillLevel: 6, ribbon: 0, helpBonus, berryS
+    });
+
+    /* 追加した行を開いた状態にして、レベルとリボンを入れてもらう */
+    listUi.open = state.mons.length - 1;
+    listUi.onlyUse = false; listUi.search = "";
+    const sb = $("monSearch"); if (sb) sb.value = "";
+    const ou = $("onlyUse"); if (ou) ou.checked = false;
+    renderMons(); render();
+
+    let m = `<b>${esc(name)} を追加しました。</b><br>`;
+    m += comboOk ? `食材構成：<b>${combo}</b>（${ingNames.map(esc).join("・")}）<br>`
+                 : `<span style="color:var(--warn)">食材構成が読み取れませんでした。手で選んでください。</span><br>`;
+    m += read.nature ? `せいかく：${esc(read.nature.name)}<br>` : `せいかく：読み取れず<br>`;
+    m += gotSubs.length ? `サブスキル：${gotSubs.map(esc).join("・")}<br>` : `サブスキル：読み取れず<br>`;
+    m += `<b>レベルと寝顔リボンは読み取れません。</b>下の一覧で開いている行に入れてください
+          （いまレベル50で入れてあります）。`;
+    shotMsg(m, "ok");
+
+  } catch (e){
+    shotMsg("読み取れませんでした：" + esc(e.message || String(e)) +
+            "<br>ネットにつながっているか確かめてください。", "ng");
+  } finally {
+    drop.classList.remove("busy");
+  }
 }
 
 /* ====== 個体値チェッカーのCSV／TSVを取り込む ====== */
@@ -2320,6 +2492,24 @@ $("fieldBonus").addEventListener("input", () => { renderRecipeLv(); render(); })
   $(id).addEventListener("input", () => { renderRecipeLv(); render(); }));
 $("addBtn").onclick = addMon;
 $("importBtn").onclick = importCsv;
+
+/* スクショの受け取り（クリック・ドラッグ＆ドロップ・貼り付け） */
+$("shotDrop").onclick = () => $("shotFile").click();
+$("shotFile").onchange = e => { if (e.target.files[0]) readShot(e.target.files[0]); e.target.value = ""; };
+["dragenter","dragover"].forEach(ev =>
+  $("shotDrop").addEventListener(ev, e => { e.preventDefault(); $("shotDrop").classList.add("over"); }));
+["dragleave","drop"].forEach(ev =>
+  $("shotDrop").addEventListener(ev, e => { e.preventDefault(); $("shotDrop").classList.remove("over"); }));
+$("shotDrop").addEventListener("drop", e => {
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (f) readShot(f);
+});
+document.addEventListener("paste", e => {
+  if (!$("shotBox").open) return;
+  for (const item of (e.clipboardData || {}).items || []){
+    if (item.type.startsWith("image/")){ readShot(item.getAsFile()); break; }
+  }
+});
 ["ncOn","ncLv","ncStop"].forEach(id =>
   $(id).addEventListener("change", () => { renderNc(); render(); }));
 renderNc();

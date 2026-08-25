@@ -132,6 +132,13 @@ select:focus,input:focus{outline:2px solid var(--accent); outline-offset:1px}
 .lvgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:8px}
 .lvgrid label{font-size:12px; margin:0 0 2px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;font-weight:700}
 .lvgrid input{padding:5px 8px; font-size:13px;font-weight:700}
+#shotDrop{
+  border:2px dashed var(--line); border-radius:12px; padding:26px 14px;
+  text-align:center; color:var(--dim); font-size:13px; cursor:pointer;
+  background:var(--surface2); margin-top:8px; transition:.12s;
+}
+#shotDrop:hover,#shotDrop.over{border-color:var(--accent); color:var(--accent)}
+#shotDrop.busy{opacity:.6; cursor:progress}
 #stockGrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px}
 #stockGrid label{font-size:12px; margin:0 0 2px;font-weight:700}
 #stockGrid input{padding:5px 8px; font-size:13px;font-weight:700}
@@ -342,6 +349,27 @@ footer a{color:var(--faint)}
   <p class="hint">ボックスを<b>まるごと</b>読み込んで大丈夫です。この中から一番いい組み合わせを自動でさがします。<br>
      ※ミュウとダークライは食材の仕組みが特別なので、このツールでは扱えません。</p>
 
+  <details class="adv" id="shotBox" style="margin-top:12px">
+    <summary>スクリーンショットから1匹ずつ読み込む（個体値計算機を使っていない人向け）</summary>
+    <ol class="hint" style="margin:8px 0 0; padding-left:1.4em; line-height:2">
+      <li>ポケモンスリープで、読み込みたいポケモンの<b>ステータス画面</b>のスクショを撮る</li>
+      <li>下の枠にその画像を<b>ドラッグ＆ドロップ</b>するか、枠を押してファイルを選ぶ</li>
+      <li>読み取れたら一覧に追加されるので、<b>レベルと寝顔リボンだけ手で入れて</b>ください</li>
+    </ol>
+    <div id="shotDrop" tabindex="0">
+      ここに画像をドラッグ＆ドロップ<br>
+      <span style="font-size:12px">（押してファイルを選ぶこともできます）</span>
+    </div>
+    <input type="file" id="shotFile" accept="image/*" style="display:none">
+    <div id="shotMsg" style="margin-top:8px"></div>
+    <p class="hint">
+      <b>読み取れるもの</b>：ポケモン名・食材3枠（AAAなど）・せいかく・サブスキル5枠<br>
+      <b>読み取れないもの</b>：レベル・スキルLv・寝顔リボン → 追加したあとに手で入れてください<br>
+      ※文字を読む部分はインターネットから部品を取ってくるので、<b>ネットにつながっている必要があります</b>。
+      最初の1回だけ少し時間がかかります。
+    </p>
+  </details>
+
   <details class="adv" style="margin-top:12px">
     <summary>ナイトキャップピカチュウを使っている（Pokémon GO Plus+）</summary>
     <p class="hint" style="margin-top:8px">
@@ -476,6 +504,1047 @@ const EX_BONUS = {"ggex":{"main":0.1,"non":0.15},"cbex":{"main":0.2,"non":0.35}}
 const EX_EFFECT = {"berry":{"label":"きのみエナジー 2.4倍","berryMul":2.4},"ing":{"label":"食材 +1個（食材とくいは平均+1.5）","ing":1,"ingExtra":0.5},"skill":{"label":"スキル確率 1.25倍","skillMul":1.25}};
 const EX_MAIN_SKILL_LEVEL_BONUS = 1;
 const RECIPE_LEVEL_BONUS = {"1":0,"2":2,"3":4,"4":6,"5":8,"6":9,"7":11,"8":13,"9":16,"10":18,"11":19,"12":21,"13":23,"14":24,"15":26,"16":28,"17":30,"18":31,"19":33,"20":35,"21":37,"22":40,"23":42,"24":45,"25":47,"26":50,"27":52,"28":55,"29":58,"30":61,"31":64,"32":67,"33":70,"34":74,"35":77,"36":81,"37":84,"38":88,"39":92,"40":96,"41":100,"42":104,"43":108,"44":113,"45":117,"46":122,"47":127,"48":132,"49":137,"50":142,"51":148,"52":153,"53":159,"54":165,"55":171,"56":177,"57":183,"58":190,"59":197,"60":203,"61":209,"62":215,"63":221,"64":227,"65":234,"66":239,"67":243,"68":248,"69":252,"70":258};
+
+/* ====== スクショ読み取り（pokesleep-vision を1つにまとめたもの） ====== */
+(function(){
+/* ---- gamedata.js ---- */
+/**
+ * ポケモンスリープのマスタデータ
+ *
+ * ここに入れてよいのは「ゲーム側の事実」だけ。
+ * 大会の配点や、ツールごとの都合（A/B/Cのようなコード）は入れないこと。
+ * 入れてしまうと、そのツール専用のライブラリになって再利用できなくなる。
+ */
+
+/** サブスキル17種。short はコミュニティで使われている略称 */
+const SUB_SKILLS = [
+  { id: 'kinomi_s',   name: 'きのみの数S',        short: 'きのみS',  aliases: ['きのみS', 'きのみの数'] },
+  { id: 'otebo',      name: 'おてつだいボーナス',  short: 'おてぼ',   aliases: ['おてぼ'] },
+  { id: 'suimin_bo',  name: '睡眠EXPボーナス',     short: '睡眠ボ',   aliases: ['睡眠ボーナス', '睡眠ボ'] },
+  { id: 'risa_bo',    name: 'リサーチEXPボーナス', short: 'リサボ',   aliases: ['リサーチボーナス', 'リサボ'] },
+  { id: 'yume_bo',    name: 'ゆめのかけらボーナス', short: 'ゆめボ',   aliases: ['ゆめボ'] },
+  { id: 'gen_bo',     name: 'げんき回復ボーナス',   short: 'げんボ',   aliases: ['げんボ'] },
+  { id: 'skileve_m',  name: 'スキルレベルアップM',  short: 'スキレベM', aliases: ['スキレベM'] },
+  { id: 'skileve_s',  name: 'スキルレベルアップS',  short: 'スキレベS', aliases: ['スキレベS'] },
+  { id: 'speed_m',    name: 'おてつだいスピードM',  short: 'スピM',    aliases: ['スピM', 'おてスピM'] },
+  { id: 'speed_s',    name: 'おてつだいスピードS',  short: 'スピS',    aliases: ['スピS', 'おてスピS'] },
+  { id: 'skill_m',    name: 'スキル確率アップM',    short: 'スキM',    aliases: ['スキM', 'スキル確率M'] },
+  { id: 'skill_s',    name: 'スキル確率アップS',    short: 'スキS',    aliases: ['スキS', 'スキル確率S'] },
+  { id: 'shokuzai_m', name: '食材確率アップM',      short: '食材M',    aliases: ['食材M'] },
+  { id: 'shokuzai_s', name: '食材確率アップS',      short: '食材S',    aliases: ['食材S'] },
+  { id: 'shoji_l',    name: '最大所持数アップL',    short: '所持L',    aliases: ['所持L'] },
+  { id: 'shoji_m',    name: '最大所持数アップM',    short: '所持M',    aliases: ['所持M'] },
+  { id: 'shoji_s',    name: '最大所持数アップS',    short: '所持S',    aliases: ['所持S'] }
+];
+
+/** 性格が上げ下げする能力 */
+const STATS = {
+  speed: 'おてつだいスピード',
+  exp: '獲得EXP',
+  skill: 'メインスキル発生確率',
+  energy: 'げんき回復量',
+  ingredient: '食材おてつだい確率',
+  none: 'なし'
+};
+
+/** 性格25種。up/down は STATS のキー */
+const NATURES = [
+  { name: 'さみしがり', up: 'speed',      down: 'energy' },
+  { name: 'いじっぱり', up: 'speed',      down: 'ingredient' },
+  { name: 'やんちゃ',   up: 'speed',      down: 'skill' },
+  { name: 'ゆうかん',   up: 'speed',      down: 'exp' },
+  { name: 'ずぶとい',   up: 'energy',     down: 'speed' },
+  { name: 'わんぱく',   up: 'energy',     down: 'ingredient' },
+  { name: 'のうてんき', up: 'energy',     down: 'skill' },
+  { name: 'のんき',     up: 'energy',     down: 'exp' },
+  { name: 'ひかえめ',   up: 'ingredient', down: 'speed' },
+  { name: 'おっとり',   up: 'ingredient', down: 'energy' },
+  { name: 'うっかりや', up: 'ingredient', down: 'skill' },
+  { name: 'れいせい',   up: 'ingredient', down: 'exp' },
+  { name: 'おだやか',   up: 'skill',      down: 'speed' },
+  { name: 'おとなしい', up: 'skill',      down: 'energy' },
+  { name: 'しんちょう', up: 'skill',      down: 'ingredient' },
+  { name: 'なまいき',   up: 'skill',      down: 'exp' },
+  { name: 'おくびょう', up: 'exp',        down: 'speed' },
+  { name: 'せっかち',   up: 'exp',        down: 'energy' },
+  { name: 'ようき',     up: 'exp',        down: 'ingredient' },
+  { name: 'むじゃき',   up: 'exp',        down: 'skill' },
+  { name: 'てれや',     up: 'none',       down: 'none' },
+  { name: 'がんばりや', up: 'none',       down: 'none' },
+  { name: 'すなお',     up: 'none',       down: 'none' },
+  { name: 'きまぐれ',   up: 'none',       down: 'none' },
+  { name: 'まじめ',     up: 'none',       down: 'none' }
+];
+
+/** サブスキルが解放されるレベル（ステータス画面の5枠の並び順） */
+const SUB_SKILL_LEVELS = [10, 25, 50, 70, 80];
+
+/** 食材が解放されるレベル（ステータス画面の3枠の並び順） */
+const INGREDIENT_LEVELS = [1, 30, 60];
+
+
+/* ---- layout.js ---- */
+/**
+ * The Ultimate Unako Championship - スクショのレイアウト検出
+ *
+ * ポケモンスリープのステータス画面には
+ *   ・全幅の緑の見出しバー（「メインスキル・サブスキル」「詳細ステータス」）
+ *   ・左寄せの緑のラベルピル（「きのみ」「食材」「おてつだい時間」「最大所持数」「せいかく」）
+ * という非常に目立つUIパーツがある。
+ * まずこれらを「色」だけで見つけ、そこからの相対位置で各項目の領域を割り出す。
+ *
+ * 固定の座標比率（旧実装）と違い、端末の解像度・アスペクト比・スクロール位置・
+ * ポケモンのレベル（Lv.バッジの有無）が変わっても追従できるのが狙い。
+ *
+ * 距離のしきい値はすべて「画像の幅」を基準にしている。
+ * ゲーム側が横幅基準でレイアウトを拡縮しているため、縦の間隔も幅に比例するから。
+ */
+
+// ---------------------------------------------------------------- 色の判定
+
+// UIの緑（見出しバー・ラベルピル）。#5EC744 〜 #97EF88 あたり
+const isUiGreen = (r, g, b) => g > 130 && g - r > 25 && g - b > 45;
+
+// メインスキルカードの枠・アイコンのオレンジ（#F5A623 系）
+const isCardOrange = (r, g, b) => r > 200 && g >= 105 && g <= 200 && b < 100;
+
+// ロック中スロットの「🔒 Lv.NN」茶色バッジ（実測 #946E4F）
+const isLockBadge = (r, g, b) =>
+  r > 80 && r < 190 && g > 45 && g < 150 && b > 20 && b < 125 && r - g > 20 && g - b > 12;
+
+const luma = (r, g, b) => r * 0.299 + g * 0.587 + b * 0.114;
+
+// 文字とみなす暗さ。未解放サブスキルの薄いグレー文字（実測 #BDAEAA, luma≈178）も拾えるよう緩めに
+const INK_LUMA = 205;
+
+// 背景の白（ページ地）とみなす明るさ
+const isPaper = (r, g, b) => r > 236 && g > 236 && b > 236;
+
+// ---------------------------------------------------------------- 小道具
+
+function readPixels(canvas) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const { width, height } = canvas;
+  return { w: width, h: height, data: ctx.getImageData(0, 0, width, height).data };
+}
+
+/** しきい値を超える行を、多少の隙間を許容しながら帯にまとめる */
+function toBands(values, threshold, minLen, gapTolerance) {
+  const bands = [];
+  let start = -1;
+  let gap = 0;
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] >= threshold) {
+      if (start < 0) start = i;
+      gap = 0;
+    } else if (start >= 0) {
+      gap++;
+      if (gap > gapTolerance) {
+        const end = i - gap;
+        if (end - start + 1 >= minLen) bands.push({ start, end });
+        start = -1;
+        gap = 0;
+      }
+    }
+  }
+  if (start >= 0) {
+    const end = values.length - 1 - gap;
+    if (end - start + 1 >= minLen) bands.push({ start, end });
+  }
+  return bands;
+}
+
+/**
+ * 「Lv.バッジ」「本文」「枠線」のように1つのピルが複数の帯に割れてしまうので、
+ * 隙間の狭いところから順にくっつけて、目的の個数まで減らす。
+ *
+ * 絶対値のしきい値を決め打ちにせず、
+ *   ・帯が目標個数より多い
+ *   ・いちばん狭い隙間が、いちばん広い隙間よりはっきり狭い
+ * のどちらかの間だけ結合するので、行間との区別が自動で付く。
+ */
+function mergeBandsTo(bands, target) {
+  const list = bands.map(b => ({ ...b }));
+  while (list.length > 1) {
+    let minIdx = 0, minGap = Infinity, maxGap = 0;
+    for (let i = 0; i < list.length - 1; i++) {
+      const gap = list[i + 1].y0 - list[i].y1;
+      if (gap < minGap) { minGap = gap; minIdx = i; }
+      if (gap > maxGap) maxGap = gap;
+    }
+    const tooMany = list.length > target;
+    const clearlyNarrower = minGap < maxGap * 0.6;
+    if (!tooMany && !clearlyNarrower) break;
+    list[minIdx] = { y0: list[minIdx].y0, y1: list[minIdx + 1].y1 };
+    list.splice(minIdx + 1, 1);
+  }
+  return list;
+}
+
+/**
+ * 矩形内の文字の外接矩形を求める。
+ *
+ * ピルの左上には「🔒 Lv.50」の茶色バッジが乗っているが、
+ * その茶色は未解放でない濃い本文の色ともほぼ同じなので、色では分けられない。
+ * かわりに「横に何画素連続して埋まっているか」で見分ける。
+ * バッジはベタ塗りなのでセル幅の1/4ほど連続するが、文字は線なので長くても数十画素。
+ */
+function tightTextBox(px, box) {
+  const { w, data } = px;
+  const x0 = Math.max(0, Math.round(box.x0));
+  const x1 = Math.min(w, Math.round(box.x1));
+  const y0 = Math.max(0, Math.round(box.y0));
+  const y1 = Math.min(px.h, Math.round(box.y1));
+  const bw = x1 - x0;
+  const bh = y1 - y0;
+  if (bw < 4 || bh < 4) return null;
+
+  const isInk = (r, g, b) => luma(r, g, b) < INK_LUMA && !isUiGreen(r, g, b);
+  const SOLID_RUN = bw * 0.16; // これ以上続いたらベタ塗り＝文字ではない
+
+  const rowInk = new Float32Array(bh);
+  const rowSolid = new Uint8Array(bh);
+  let total = 0;
+  for (let y = 0; y < bh; y++) {
+    let run = 0, maxRun = 0;
+    for (let x = 0; x < bw; x++) {
+      const i = ((y0 + y) * w + (x0 + x)) * 4;
+      if (isInk(data[i], data[i + 1], data[i + 2])) {
+        rowInk[y]++;
+        total++;
+        if (++run > maxRun) maxRun = run;
+      } else {
+        run = 0;
+      }
+    }
+    if (maxRun > SOLID_RUN) rowSolid[y] = 1;
+  }
+  if (total < bw * 0.6) return null; // 実質空欄
+
+  // しきい値はベタ塗り行（枠線など）を除いた最大値から決める。
+  // 淡い緑の枠線は isUiGreen の彩度条件からわずかに外れて「文字」に数えられることがあり、
+  // それを含めてピークを取るとしきい値が跳ね上がって本文の帯が千切れてしまうため。
+  let rowPeak = 0;
+  for (let y = 0; y < bh; y++) if (!rowSolid[y] && rowInk[y] > rowPeak) rowPeak = rowInk[y];
+  if (rowPeak <= 0) rowPeak = Math.max(...rowInk);
+
+  const rowBands = toBands(rowInk, Math.max(1, rowPeak * 0.15), Math.max(3, Math.round(bh * 0.05)), Math.max(2, Math.round(bh * 0.10)));
+  if (!rowBands.length) return null;
+
+  // ベタ塗りが主体の帯（Lv.バッジ・枠線）を落として、いちばん画素の多い帯を本文とみなす
+  let best = null;
+  let bestMass = -1;
+  for (const band of rowBands) {
+    let mass = 0, solid = 0;
+    for (let y = band.start; y <= band.end; y++) { mass += rowInk[y]; solid += rowSolid[y]; }
+    if (solid > (band.end - band.start + 1) * 0.5) continue;
+    if (mass > bestMass) { bestMass = mass; best = band; }
+  }
+  if (!best) return null;
+
+  // 本文の行だけで列方向を測り直す
+  const colInk = new Float32Array(bw);
+  for (let y = best.start; y <= best.end; y++) {
+    for (let x = 0; x < bw; x++) {
+      const i = ((y0 + y) * w + (x0 + x)) * 4;
+      if (isInk(data[i], data[i + 1], data[i + 2])) colInk[x]++;
+    }
+  }
+  const colPeak = Math.max(...colInk);
+  const colBands = toBands(colInk, Math.max(1, colPeak * 0.08), 1, Math.max(2, Math.round(bw * 0.06)));
+  if (!colBands.length) return null;
+
+  const textH = best.end - best.start + 1;
+  const padY = Math.max(3, Math.round(textH * 0.30));
+  const padX = Math.max(3, Math.round(textH * 0.25));
+
+  return {
+    x0: Math.max(x0, x0 + colBands[0].start - padX),
+    x1: Math.min(x1, x0 + colBands[colBands.length - 1].end + 1 + padX),
+    y0: Math.max(y0, y0 + best.start - padY),
+    y1: Math.min(y1, y0 + best.end + 1 + padY)
+  };
+}
+
+// ---------------------------------------------------------------- 緑パーツ検出
+
+/** 全幅の見出しバーと、左寄せのラベルピルを拾う */
+function findGreenParts(px) {
+  const { w, h, data } = px;
+  const step = Math.max(1, Math.round(w / 320));
+  const xStart = Math.round(w * 0.02);
+  const xEnd = Math.round(w * 0.98);
+  const leftLimit = w * 0.42;
+
+  const fullRatio = new Float32Array(h);
+  const leftShare = new Float32Array(h);
+
+  for (let y = 0; y < h; y++) {
+    let total = 0, left = 0, n = 0;
+    for (let x = xStart; x < xEnd; x += step) {
+      const i = (y * w + x) * 4;
+      n++;
+      if (isUiGreen(data[i], data[i + 1], data[i + 2])) {
+        total++;
+        if (x < leftLimit) left++;
+      }
+    }
+    fullRatio[y] = n ? total / n : 0;
+    leftShare[y] = total ? left / total : 0;
+  }
+
+  const minH = Math.max(3, Math.round(w * 0.006));
+  const gap = Math.max(2, Math.round(w * 0.004));
+
+  const barRows = new Float32Array(h);
+  const pillRows = new Float32Array(h);
+  for (let y = 0; y < h; y++) {
+    if (fullRatio[y] >= 0.55) barRows[y] = 1;
+    else if (fullRatio[y] >= 0.07 && leftShare[y] >= 0.75) pillRows[y] = 1;
+  }
+
+  return {
+    fullRatio,
+    bars: toBands(barRows, 1, minH, gap).map(b => ({ y0: b.start, y1: b.end + 1 })),
+    pills: toBands(pillRows, 1, minH, gap).map(b => ({ y0: b.start, y1: b.end + 1 }))
+  };
+}
+
+// ---------------------------------------------------------------- 食材アイコン列
+
+/**
+ * 食材ラベルの行から、アイコンが並んでいる列を探して
+ * Lv.1 / Lv.30 / Lv.60 の3スロットの矩形を返す
+ */
+function findIngredientSlots(px, band) {
+  const { w, h, data } = px;
+  const y0 = Math.max(0, Math.round(band.y0));
+  const y1 = Math.min(h, Math.round(band.y1));
+  const xFrom = Math.round(w * 0.30);
+  const step = Math.max(1, Math.round(w / 500));
+
+  // アイコン台座の淡いクリーム円（#FFFEF0 系）と、色の付いた画素の両方を数える
+  const colScore = new Float32Array(w);
+  for (let y = y0; y < y1; y += step) {
+    for (let x = xFrom; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      const cream = r > 240 && g > 230 && b > 185 && b < 245 && r - b > 8;
+      const colored = mx > 60 && (mx - mn) / mx > 0.10;
+      if (cream || colored) colScore[x]++;
+    }
+  }
+
+  const peak = Math.max(...colScore);
+  if (peak <= 0) return [];
+  const cols = toBands(colScore, peak * 0.25, Math.round(w * 0.02), Math.round(w * 0.012));
+  return cols
+    .map(c => ({ x0: c.start, x1: c.end + 1, width: c.end - c.start }))
+    .filter(c => c.width >= w * 0.05)   // ×2 バッジの縁など小さすぎる塊は捨てる
+    .sort((a, b) => b.width - a.width)
+    .slice(0, 3)
+    .sort((a, b) => a.x0 - b.x0)
+    .map(s => ({ x0: s.x0, x1: s.x1, y0, y1 }));
+}
+
+// ---------------------------------------------------------------- 本体
+
+/**
+ * スクショ全体のレイアウトを検出する
+ */
+function detectLayout(canvas) {
+  const px = readPixels(canvas);
+  const { w, h } = px;
+  const notes = [];
+  const { bars, pills, fullRatio } = findGreenParts(px);
+
+  notes.push(`緑バー ${bars.length}本 / 緑ピル ${pills.length}個`);
+
+  const skillBar = bars[0] || null;      // 「メインスキル・サブスキル」
+  const detailBar = bars[1] || null;     // 「詳細ステータス」
+
+  // ---- 食材の行 -----------------------------------------------------------
+  // 見出しバーより上のラベルピルは、上から きのみ / 食材 / おてつだい時間 / 最大所持数。
+  // バーを基準に下から数えて3番目が「食材」。
+  let ingredientSlots = [];
+  const abovePills = pills.filter(p => !skillBar || p.y1 <= skillBar.y0);
+  if (abovePills.length >= 3) {
+    const idx = abovePills.length - 3;
+    const target = abovePills[idx];
+    const prev = abovePills[idx - 1];
+    const next = abovePills[idx + 1];
+    const pillH = target.y1 - target.y0;
+    const rowTop = prev ? (prev.y1 + target.y0) / 2 : target.y0 - pillH * 2;
+    const rowBottom = next ? (target.y1 + next.y0) / 2 : target.y1 + pillH * 2;
+    ingredientSlots = findIngredientSlots(px, { y0: rowTop, y1: rowBottom });
+    notes.push(`食材行 y=${Math.round(rowTop)}..${Math.round(rowBottom)} スロット${ingredientSlots.length}個`);
+  } else {
+    notes.push('食材行を特定できず（緑のラベルピルが足りない）');
+  }
+
+  // ---- サブスキル5枠 ------------------------------------------------------
+  const subSkillBoxes = [null, null, null, null, null];
+  if (skillBar) {
+    const secTop = skillBar.y1;
+    const secBottom = detailBar ? detailBar.y0 : h;
+    const step = Math.max(1, Math.round(w / 320));
+    const xs = Math.round(w * 0.03), xe = Math.round(w * 0.97);
+
+    const inkRows = new Float32Array(secBottom - secTop);
+    const orangeRows = new Float32Array(secBottom - secTop);
+    for (let y = secTop; y < secBottom; y++) {
+      let ink = 0, orange = 0, n = 0;
+      for (let x = xs; x < xe; x += step) {
+        const i = (y * w + x) * 4;
+        const r = px.data[i], g = px.data[i + 1], b = px.data[i + 2];
+        n++;
+        if (!isPaper(r, g, b)) ink++;
+        if (isCardOrange(r, g, b)) orange++;
+      }
+      inkRows[y - secTop] = n ? ink / n : 0;
+      orangeRows[y - secTop] = n ? orange / n : 0;
+    }
+
+    let bands = toBands(inkRows, 0.02, Math.round(w * 0.008), Math.round(w * 0.012))
+      .map(b => ({ y0: secTop + b.start, y1: secTop + b.end + 1 }));
+
+    // オレンジ枠のメインスキルカードは対象外
+    bands = bands.filter(b => {
+      let maxOrange = 0;
+      for (let y = b.y0; y < b.y1; y++) maxOrange = Math.max(maxOrange, orangeRows[y - secTop]);
+      return maxOrange < 0.45;
+    });
+
+    // バッジ・本文・枠線に割れた帯を、ピル1行ぶんに束ね直す
+    const rows = mergeBandsTo(bands, 3).slice(-3);
+    notes.push(`サブスキル行 ${rows.map(r => `${r.y0}..${r.y1}`).join(' / ') || 'なし'}`);
+
+    const cols = [
+      { x0: w * 0.03, x1: w * 0.495 },
+      { x0: w * 0.505, x1: w * 0.97 }
+    ];
+    for (let r = 0; r < rows.length; r++) {
+      for (let c = 0; c < 2; c++) {
+        const slot = r * 2 + c;
+        if (slot > 4) break;
+        subSkillBoxes[slot] = tightTextBox(px, {
+          x0: cols[c].x0, x1: cols[c].x1, y0: rows[r].y0, y1: rows[r].y1
+        });
+      }
+    }
+  } else {
+    notes.push('「メインスキル・サブスキル」の見出しバーが見つからず');
+  }
+
+  // ---- せいかく -----------------------------------------------------------
+  // 「せいかく」タブの真下に、緑の枠線で囲まれた値のボックスがある。
+  // 下端はその枠線（＝次に緑が現れる行）で止める。行き過ぎると
+  // 画面下の「もどる」ボタンを拾ってしまうため。
+  let natureBox = null;
+  if (detailBar) {
+    const naturePill = pills.find(p => p.y0 >= detailBar.y1);
+    const searchTop = naturePill ? naturePill.y1 : detailBar.y1;
+    let searchBottom = Math.min(h, searchTop + w * 0.105);
+    const limit = Math.min(h, searchTop + Math.round(w * 0.16));
+    for (let y = searchTop + Math.round(w * 0.02); y < limit; y++) {
+      if (fullRatio[y] >= 0.05) { searchBottom = y; break; }
+    }
+    natureBox = tightTextBox(px, { x0: w * 0.04, x1: w * 0.50, y0: searchTop, y1: searchBottom });
+    notes.push(`せいかく探索 y=${Math.round(searchTop)}..${Math.round(searchBottom)} → ${natureBox ? 'ok' : '見つからず'}`);
+  } else {
+    notes.push('「詳細ステータス」の見出しバーが見つからず');
+  }
+
+  // ---- 名前とSP ------------------------------------------------------------
+  // 画面上部。ポケモンをタップした時のポップアップが被っていることもあるので広めに取る。
+  const headerBox = { x0: w * 0.02, x1: w * 0.78, y0: h * 0.03, y1: Math.min(h, h * 0.17) };
+
+  return { w, h, headerBox, ingredientSlots, subSkillBoxes, natureBox, notes, bars, pills };
+}
+
+
+
+/* ---- matching.js ---- */
+/**
+ * OCRで読めた文字列を、候補集合へあいまい一致させる
+ *
+ * サブスキル17種・性格25種という「閉じた候補集合」が相手なので、
+ * 多少読み違えていても正解に寄せられる。
+ */
+
+// 半角化・長音記号の統一・小書き仮名の統一・漢字とカタカナのそっくりさん対策。
+// OCR結果と候補名の両方に同じ処理をかけてから比較すること。
+// 片方だけに掛けると永久に一致しなくなる。
+const LOOKALIKE = {
+  力: 'カ', 口: 'ロ', 二: 'ニ', 卜: 'ト', 夕: 'タ', 工: 'エ', 才: 'オ',
+  八: 'ハ', 厶: 'ム', 匕: 'ヒ', 三: 'ミ', 川: 'ル', 沙: 'シ',
+  ァ: 'ア', ィ: 'イ', ゥ: 'ウ', ェ: 'エ', ォ: 'オ', ッ: 'ツ', ャ: 'ヤ', ュ: 'ユ', ョ: 'ヨ',
+  ぁ: 'あ', ぃ: 'い', ぅ: 'う', ぇ: 'え', ぉ: 'お', っ: 'つ', ゃ: 'や', ゅ: 'ゆ', ょ: 'よ'
+};
+
+function normalizeText(s) {
+  if (!s) return '';
+  return s
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[‐-―−－ーｰ一\-—–─━]/g, 'ー')
+    .replace(/[\s　_・:：;,.、。'"`|｜()（）\[\]{}<>＜＞!?！？*+=~^\\/]/g, '')
+    .replace(/[ぁ-んァ-ヶ一-龠]/g, c => LOOKALIKE[c] || c)
+    .replace(/[ァィゥェォッャュョぁぃぅぇぉっゃゅょ]/g, c => LOOKALIKE[c] || c)
+    .toUpperCase();
+}
+
+function levenshtein(a, b) {
+  const la = a.length, lb = b.length;
+  if (!la || !lb) return Math.max(la, lb);
+  let prev = new Array(lb + 1);
+  let cur = new Array(lb + 1);
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= lb; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[lb];
+}
+
+/** 0〜1 の類似度。部分一致にも点を与える */
+function similarity(s1, s2) {
+  if (!s1 || !s2) return 0;
+  if (s1 === s2) return 1;
+  const long = s1.length >= s2.length ? s1 : s2;
+  const short = s1.length >= s2.length ? s2 : s1;
+  if (short.length >= 3 && long.includes(short)) return 0.90 + 0.08 * (short.length / long.length);
+  return 1 - levenshtein(s1, s2) / Math.max(s1.length, s2.length);
+}
+
+// サブスキルは S / M / L 違いで1文字しか変わらないものが多いので、
+// 語幹の一致とサイズ文字の一致を分けて評価する
+const SIZE_RE = /([SML])$/;
+
+const SUB_SKILL_KEYS = SUB_SKILLS.map(s => {
+  const norm = normalizeText(s.name);
+  const m = norm.match(SIZE_RE);
+  return {
+    id: s.id,
+    norm,
+    stem: m ? norm.slice(0, -1) : norm,
+    size: m ? m[1] : null,
+    aliases: (s.aliases || []).map(normalizeText)
+  };
+});
+
+const NATURE_KEYS = NATURES.map(n => ({ name: n.name, norm: normalizeText(n.name) }));
+
+/** OCRのくずれをサイズ文字に寄せる（5→S など。サブスキル名に数字は出てこない） */
+function normalizeSizeChar(c) {
+  if (!c) return null;
+  const map = { S: 'S', 5: 'S', $: 'S', 8: 'S', M: 'M', N: 'M', H: 'M', L: 'L', 1: 'L', I: 'L', '|': 'L' };
+  return map[c] || null;
+}
+
+/** @returns {{id:string, score:number, raw:string}|null} */
+function matchSubSkill(text) {
+  const clean = normalizeText(text).replace(/^LV\.?\d+/i, '');
+  if (clean.length < 2) return null;
+
+  const tailSize = normalizeSizeChar(clean.slice(-1));
+  const stem = SIZE_RE.test(clean) ? clean.slice(0, -1) : clean;
+
+  let best = null;
+  let bestScore = 0;
+  for (const key of SUB_SKILL_KEYS) {
+    let score = Math.max(
+      similarity(stem, key.stem) * 0.85 + similarity(clean, key.norm) * 0.15,
+      ...key.aliases.map(a => similarity(clean, a) * 0.95)
+    );
+    // サイズ文字（S/M/L）が読めているなら、それを強く効かせる
+    if (key.size && tailSize) score += tailSize === key.size ? 0.10 : -0.18;
+    if (score > bestScore) { bestScore = score; best = key; }
+  }
+  return bestScore >= 0.58 ? { id: best.id, score: bestScore, raw: text } : null;
+}
+
+/** @returns {{name:string, score:number, raw:string}|null} */
+function matchNature(text) {
+  const clean = normalizeText(text);
+  if (clean.length < 2) return null;
+
+  let best = null;
+  let bestScore = 0;
+  for (const key of NATURE_KEYS) {
+    const score = similarity(clean, key.norm);
+    if (score > bestScore) { bestScore = score; best = key; }
+  }
+  return bestScore >= 0.60 ? { name: best.name, score: bestScore, raw: text } : null;
+}
+
+/**
+ * @returns {{value:number, sure:boolean}|null}
+ * 「SP」の文字ごと読めた時だけ sure=true。
+ * それ以外は時計やバッテリー残量を拾っている可能性があるので、呼び出し側で要確認あつかいにすること。
+ */
+function extractSP(text) {
+  if (!text) return null;
+  const tagged = normalizeText(text).match(/SP(\d{2,5})/);
+  if (tagged) return { value: parseInt(tagged[1], 10), sure: true };
+
+  // ヘッダーには本人のレベルと食材解放レベルも写っている。
+  // 「Lv.30」が「Lv.306」のようにくっついて読まれると3桁の数字として
+  // SPの候補に混ざってしまうので、レベル表記ごと先に取り除く。
+  const withoutLevels = text.replace(/Lv\.?\s*\d+/gi, ' ');
+  const numbers = [...new Set((withoutLevels.match(/\d{3,4}/g) || []).map(n => parseInt(n, 10)))];
+  // 残りが1つに絞れた時だけ採用する。複数あるなら時計やバッテリー残量と区別できない
+  return numbers.length === 1 ? { value: numbers[0], sure: false } : null;
+}
+
+
+/* ---- ingredients.js ---- */
+/**
+ * 食材アイコンの判定
+ *
+ * 判定には「色相のヒストグラム」を使う。
+ * 未解放スロットのアイコンは白っぽく退色して描画されるが、
+ * 退色は彩度を下げるだけで色相はほぼ変えないので、この指標なら影響を受けにくい。
+ * （絶対的な画素数で判定すると未解放スロットを取りこぼす）
+ *
+ * 色相は15度ずつ24個に分ける。
+ * 食材は赤〜橙の狭い範囲に集中していて（トマト約5度・カカオ約25度・ポテト約42度）、
+ * 30度刻みだとトマトとカカオが同じ区分に入ってしまう。
+ * 全17種を見分けるにはこのくらいの細かさが要る。
+ * 細かくすると分割の境目に載った色で判定がぶれるので、
+ * 比較前に隣のビンとならして丸める。
+ *
+ * 食材を増やすには tools/measure-ingredient.mjs で実測して
+ * PROTOTYPES に1行足す。
+ */
+
+
+const HUE_BINS = 24;
+
+/** 実測済みの食材。hue は measure-ingredient.mjs の出力をそのまま貼る */
+const PROTOTYPES = [
+  {
+    name: 'あんみんトマト',
+    hue: [0.839, 0.009, 0.012, 0.019, 0.015, 0.009, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.004, 0.017, 0.002, 0.000, 0.000, 0.000, 0.001, 0.001, 0.004, 0.069]
+  },
+  {
+    name: 'リラックスカカオ',
+    hue: [0.063, 0.581, 0.162, 0.062, 0.044, 0.040, 0.014, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.003, 0.002, 0.002, 0.001, 0.000, 0.000, 0.000, 0.003, 0.000, 0.023]
+  },
+  {
+    name: 'ほっこりポテト',
+    hue: [0.033, 0.177, 0.756, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.002, 0.011, 0.008, 0.002, 0.000, 0.001, 0.000, 0.000, 0.001, 0.004, 0.006]
+  }
+];
+
+// 彩度がこれ未満の画素は、台座のクリーム色や白背景とみなして無視する
+const MIN_SAT = 0.10;
+const MIN_VAL = 0.20;
+
+// 判定に足りる画素数。これを下回ったらアイコンが写っていないと判断する
+const MIN_PIXELS = 40;
+
+// アイコン台座のクリーム色。未解放スロットはこの色に混ぜて薄く描かれる
+const PEDESTAL = [254, 254, 240];
+
+/**
+ * 未解放スロットの退色を打ち消す。
+ *
+ * 台座のクリーム色は少し黄色いので、混ざると色相が橙側へ寄ってしまう。
+ * 実測でも、解放済みトマトが 0.6度 なのに未解放トマトは 6.9度 まで動き、
+ * 輪郭のように混色の強い画素はさらにカカオの色相域まで入り込む。
+ *
+ * そこで台座色から画素へ向かう向きに、どれかのチャンネルが振り切れるまで
+ * 伸ばして混色前の色を復元する。これで解放済みでも未解放でも同じ色相になり、
+ * 食材ごとにプロトタイプを2つ持たずに済む。
+ */
+function unfade(r, g, b) {
+  const dr = r - PEDESTAL[0];
+  const dg = g - PEDESTAL[1];
+  const db = b - PEDESTAL[2];
+  let k = Infinity;
+  for (const [v, d] of [[r, dr], [g, dg], [b, db]]) {
+    if (d < 0) k = Math.min(k, v / -d);
+    else if (d > 0) k = Math.min(k, (255 - v) / d);
+  }
+  if (!isFinite(k) || k <= 0) return [r, g, b];
+  return [r + dr * k, g + dg * k, b + db * k];
+}
+
+function hue(r0, g0, b0) {
+  const [r, g, b] = unfade(r0, g0, b0);
+  const mx = Math.max(r, g, b);
+  const mn = Math.min(r, g, b);
+  const d = mx - mn;
+  if (!d) return 0;
+  let h;
+  if (mx === r) h = 60 * (((g - b) / d) % 6);
+  else if (mx === g) h = 60 * ((b - r) / d + 2);
+  else h = 60 * ((r - g) / d + 4);
+  return h < 0 ? h + 360 : h;
+}
+
+/** 隣のビンとならす。分割の境目に載った色でぶれないようにするため */
+function smooth(hist) {
+  const n = hist.length;
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    out[i] = hist[(i - 1 + n) % n] * 0.25 + hist[i] * 0.5 + hist[(i + 1) % n] * 0.25;
+  }
+  return out;
+}
+
+/**
+ * 矩形から、アイコン本体だけが写っている行の範囲を絞り込む。
+ * 上の「Lv.30」茶色バッジと下の「×2」バッジを巻き込まないための処理。
+ */
+function findIconRows(px, box) {
+  const { w, data } = px;
+  const x0 = Math.max(0, Math.round(box.x0));
+  const x1 = Math.min(w, Math.round(box.x1));
+  const y0 = Math.max(0, Math.round(box.y0));
+  const y1 = Math.min(px.h, Math.round(box.y1));
+  const bh = y1 - y0;
+  if (bh < 8) return null;
+
+  const rowCount = new Float32Array(bh);
+  for (let y = 0; y < bh; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = ((y0 + y) * w + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (isLockBadge(r, g, b)) continue;
+      const mx = Math.max(r, g, b);
+      const mn = Math.min(r, g, b);
+      if (mx < MIN_VAL * 255) continue;
+      if ((mx - mn) / mx < MIN_SAT) continue;
+      rowCount[y]++;
+    }
+  }
+
+  // 途切れごとに塊へ分け、画素数がいちばん多い塊をアイコン本体とみなす
+  const gapTol = Math.max(2, Math.round(bh * 0.03));
+  const groups = [];
+  let start = -1, gap = 0;
+  for (let y = 0; y < bh; y++) {
+    if (rowCount[y] > 0) { if (start < 0) start = y; gap = 0; }
+    else if (start >= 0 && ++gap > gapTol) { groups.push([start, y - gap]); start = -1; gap = 0; }
+  }
+  if (start >= 0) groups.push([start, bh - 1]);
+  if (!groups.length) return null;
+
+  let best = null, bestMass = -1;
+  for (const [a, b] of groups) {
+    let mass = 0;
+    for (let y = a; y <= b; y++) mass += rowCount[y];
+    if (mass > bestMass) { bestMass = mass; best = [a, b]; }
+  }
+  return { x0, x1, y0: y0 + best[0], y1: y0 + best[1] + 1 };
+}
+
+/**
+ * 矩形内の色相ヒストグラムを測る。
+ * 食材を追加するときの実測にも使うので、判定とは別に公開している。
+ * @returns {{hue:number[], pixels:number}|null}
+ */
+function describeIcon(px, box, { alreadyTight = false } = {}) {
+  const iconBox = alreadyTight ? box : findIconRows(px, box);
+  if (!iconBox) return null;
+
+  const { w, data } = px;
+  const bins = new Array(HUE_BINS).fill(0);
+  let n = 0;
+  for (let y = Math.round(iconBox.y0); y < Math.round(iconBox.y1); y++) {
+    for (let x = Math.round(iconBox.x0); x < Math.round(iconBox.x1); x++) {
+      const i = (y * w + x) * 4;
+      if (data[i + 3] < 128) continue; // 透過（参照アイコンPNG用）
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (isLockBadge(r, g, b)) continue;
+      const mx = Math.max(r, g, b);
+      const mn = Math.min(r, g, b);
+      if (mx < MIN_VAL * 255) continue;
+      if ((mx - mn) / mx < MIN_SAT) continue;
+      bins[Math.min(HUE_BINS - 1, Math.floor(hue(r, g, b) / (360 / HUE_BINS)))]++;
+      n++;
+    }
+  }
+  if (!n) return null;
+  return { hue: bins.map(v => v / n), pixels: n, box: iconBox };
+}
+
+/**
+ * 1スロットぶんの食材を判定する
+ * @returns {{name:string|null, confidence:number, hue:number[]}}
+ */
+function classifyIngredientSlot(px, slotBox) {
+  const empty = { name: null, confidence: 0, hue: [] };
+  const desc = describeIcon(px, slotBox);
+  if (!desc || desc.pixels < MIN_PIXELS) return empty;
+
+  const hist = smooth(desc.hue);
+  let best = null, bestDist = Infinity, secondDist = Infinity;
+  for (const p of PROTOTYPES) {
+    const ref = smooth(p.hue);
+    let d = 0;
+    for (let i = 0; i < HUE_BINS; i++) d += Math.abs(hist[i] - ref[i]);
+    if (d < bestDist) { secondDist = bestDist; bestDist = d; best = p; }
+    else if (d < secondDist) secondDist = d;
+  }
+
+  return {
+    name: best.name,
+    // 2位との差が開いているほど自信あり。1候補しかない時は距離の近さで見る
+    confidence: PROTOTYPES.length > 1
+      ? Math.max(0, Math.min(1, (secondDist - bestDist) / 1.0))
+      : Math.max(0, 1 - bestDist),
+    hue: desc.hue.map(v => Number(v.toFixed(3)))
+  };
+}
+
+
+/* ---- index.js ---- */
+/**
+ * pokesleep-vision
+ *
+ * ポケモンスリープのステータス画面のスクショから、
+ * 食材3枠・サブスキル5枠・せいかく・SP・ポケモン名を読み取る。
+ *
+ *   const result = await readStatusScreen(imgElement);
+ *
+ * 返すのは「ゲーム側の事実」だけ。
+ * 大会のコード（A/B/C）や配点への変換は、使う側のアプリで行うこと。
+ */
+
+
+let worker = null;
+
+/**
+ * Tesseractのワーカーを用意する。
+ * Tesseract.js は呼び出し側で読み込んでおくこと（CDNのscriptタグ等）。
+ */
+async function initOCR(onProgress, tesseract = globalThis.Tesseract) {
+  if (worker) return worker;
+  if (!tesseract) throw new Error('Tesseract.js が読み込まれていません');
+  worker = await tesseract.createWorker('jpn', 1, {
+    logger: m => {
+      if (onProgress && m.status === 'recognizing text') onProgress(Math.round(m.progress * 100));
+    }
+  });
+  return worker;
+}
+
+/** 読み込み済みのワーカーを破棄する（ページを離れる時など） */
+async function disposeOCR() {
+  if (worker) { await worker.terminate(); worker = null; }
+}
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  return c;
+}
+
+/**
+ * 矩形を切り出しつつ拡大し、グレースケール＋コントラスト伸長をかける。
+ * 未解放サブスキルの薄いグレー文字は、この伸長がないとほぼ読めない。
+ */
+function cropForOCR(source, box, targetHeight = 130) {
+  const sw = Math.max(1, Math.round(box.x1 - box.x0));
+  const sh = Math.max(1, Math.round(box.y1 - box.y0));
+  const scale = Math.min(6, Math.max(1, targetHeight / sh));
+  const dw = Math.round(sw * scale);
+  const dh = Math.round(sh * scale);
+
+  const canvas = makeCanvas(dw, dh);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  // 余白を白で埋めてから描く（切り出しが画像端をはみ出しても黒くならないように）
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, dw, dh);
+  ctx.drawImage(source, Math.round(box.x0), Math.round(box.y0), sw, sh, 0, 0, dw, dh);
+
+  const img = ctx.getImageData(0, 0, dw, dh);
+  const d = img.data;
+  const gray = new Uint8Array(dw * dh);
+  const hist = new Uint32Array(256);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    const v = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0;
+    gray[p] = v;
+    hist[v]++;
+  }
+
+  // 下位2%／上位2%を捨てた範囲へ引き伸ばす
+  const total = dw * dh;
+  let acc = 0, lo = 0, hi = 255;
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= total * 0.02) { lo = v; break; } }
+  acc = 0;
+  for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= total * 0.02) { hi = v; break; } }
+  const span = Math.max(1, hi - lo);
+
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    let v = ((gray[p] - lo) / span) * 255;
+    d[i] = d[i + 1] = d[i + 2] = v < 0 ? 0 : v > 255 ? 255 : v;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+// 候補名に出てくる文字だけに絞ると、Tesseract の誤読がぐっと減る
+function charsetOf(strings, extra = '') {
+  return Array.from(new Set((strings.join('') + extra).split(''))).join('');
+}
+const SUB_SKILL_CHARS = charsetOf(SUB_SKILLS.map(s => s.name), 'SMLー');
+const NATURE_CHARS = charsetOf(NATURES.map(n => n.name));
+
+async function recognize(w, canvas, { whitelist, singleLine = true, psm }) {
+  await w.setParameters({
+    tessedit_pageseg_mode: psm || (singleLine ? '7' : '6'),
+    tessedit_char_whitelist: whitelist || '',
+    preserve_interword_spaces: '0',
+    user_defined_dpi: '300'
+  });
+  const res = await w.recognize(canvas);
+  return (res.data.text || '').trim();
+}
+
+/**
+ * スクショ1枚を読み取る
+ *
+ * @param {HTMLImageElement|HTMLCanvasElement} image
+ * @param {object} [options]
+ * @param {(pct:number)=>void} [options.onProgress]
+ * @param {(name:string, canvas:HTMLCanvasElement)=>void} [options.onCrop] 切り出した画像を受け取る（デバッグ用）
+ * @param {string[]} [options.pokemonNames] 名前の候補。渡すとヘッダーのOCRをその文字だけに絞る
+ * @param {boolean} [options.verbose] 経過をconsoleに出す
+ * @param {object} [options.tesseract] Tesseract.js（既定は globalThis.Tesseract）
+ */
+async function readStatusScreen(image, options = {}) {
+  const { onProgress, onCrop, pokemonNames = [], verbose = false, tesseract } = options;
+  const log = verbose ? (...a) => console.log(...a) : () => {};
+
+  const base = makeCanvas(
+    image.naturalWidth || image.width,
+    image.naturalHeight || image.height
+  );
+  base.getContext('2d', { willReadFrequently: true }).drawImage(image, 0, 0);
+
+  const layout = detectLayout(base);
+  const px = readPixels(base);
+  layout.notes.forEach(n => log('[layout]', n));
+
+  const result = {
+    pokemonName: null,
+    sp: null,
+    ingredients: INGREDIENT_LEVELS.map(level => ({ level, name: null, confidence: 0 })),
+    subSkills: SUB_SKILL_LEVELS.map(level => ({ level, id: null, name: null })),
+    nature: null,
+    raw: {},
+    layout
+  };
+
+  // ---- 食材（OCR不要） ---------------------------------------------------
+  layout.ingredientSlots.slice(0, 3).forEach((box, i) => {
+    const res = classifyIngredientSlot(px, box);
+    result.ingredients[i].name = res.name;
+    result.ingredients[i].confidence = res.confidence;
+    log(`[食材] Lv.${INGREDIENT_LEVELS[i]}: ${res.name || '判定不可'} (信頼度 ${res.confidence.toFixed(2)})`);
+    if (onCrop) onCrop(`ing${INGREDIENT_LEVELS[i]}`, cropForOCR(base, box, 200));
+  });
+
+  // ---- ここからOCR -------------------------------------------------------
+  const w = await initOCR(onProgress, tesseract);
+  const steps = 1 + layout.subSkillBoxes.filter(Boolean).length + (layout.natureBox ? 1 : 0);
+  let done = 0;
+  const tick = () => { done++; if (onProgress) onProgress(Math.round((done / Math.max(1, steps)) * 100)); };
+
+  // 名前とSP
+  try {
+    const box = layout.headerBox;
+    // ヘッダーは領域が広いので、拡大しすぎるとOCRが一気に重くなる。
+    // 小さいスクショだけ引き伸ばす程度にとどめる。
+    const canvas = cropForOCR(base, box, 300);
+    if (onCrop) onCrop('header', canvas);
+    const chars = pokemonNames.length ? charsetOf(pokemonNames, 'SPLv0123456789.') : '';
+
+    // 長い名前から先に見る（「カヌチャン」が「デカヌチャン」に先に当たらないように）
+    const byLength = [...pokemonNames].sort((a, b) => b.length - a.length);
+    const findName = text => {
+      const flat = normalizeText(text); // 比較する側も同じ正規化を通す
+      return byLength.find(n => flat.includes(normalizeText(n))) || null;
+    };
+
+    // 画面上部にはOSのステータスバー（時刻・電池）が入り込むことがあり、
+    // 段組みとして読む PSM 6 だと名前の一部を落とすことがある。
+    // 読めなかった時だけ、散らばった文字を拾う PSM 11 で読み直す。
+    let text = await recognize(w, canvas, { whitelist: chars, singleLine: false });
+    result.pokemonName = findName(text);
+    if (!result.pokemonName && pokemonNames.length) {
+      const retry = await recognize(w, canvas, { whitelist: chars, singleLine: false, psm: '11' });
+      log('[ヘッダー] 再試行', JSON.stringify(retry));
+      const found = findName(retry);
+      if (found) { result.pokemonName = found; text = retry; }
+    }
+
+    result.raw.header = text;
+    log('[ヘッダー]', JSON.stringify(text));
+    result.sp = extractSP(text);
+
+    // スクショの切り取り位置によっては、SPが画像のいちばん上ギリギリに来て
+    // 標準の切り出しから外れる。読めなかった時だけ上端まで含めて読み直す。
+    // 逆に最初から広く取ると、余白が増えて別のスクショで数字を落とすので、
+    // あくまで駄目だった時の保険として二段構えにしている。
+    if (!result.sp) {
+      const topBox = { ...box, y0: 0 };
+      const retry = await recognize(w, cropForOCR(base, topBox, 300), { whitelist: chars, singleLine: false });
+      log('[ヘッダー] SP再試行', JSON.stringify(retry));
+      const sp = extractSP(retry);
+      if (sp) { result.sp = sp; result.raw.headerTop = retry; }
+    }
+  } catch (e) {
+    console.warn('[ヘッダー] 読み取り失敗', e);
+  }
+  tick();
+
+  // サブスキル5枠
+  for (let i = 0; i < SUB_SKILL_LEVELS.length; i++) {
+    const box = layout.subSkillBoxes[i];
+    if (!box) { log(`[サブスキル Lv.${SUB_SKILL_LEVELS[i]}] 領域を検出できず`); continue; }
+    const canvas = cropForOCR(base, box);
+    if (onCrop) onCrop(`sub${SUB_SKILL_LEVELS[i]}`, canvas);
+    const text = await recognize(w, canvas, { whitelist: SUB_SKILL_CHARS });
+    const matched = matchSubSkill(text);
+    result.raw[`sub${SUB_SKILL_LEVELS[i]}`] = text;
+    log(`[サブスキル Lv.${SUB_SKILL_LEVELS[i]}] "${text}" → ${matched ? matched.id : '一致なし'}`);
+    if (matched) {
+      result.subSkills[i].id = matched.id;
+      result.subSkills[i].name = SUB_SKILLS.find(s => s.id === matched.id).name;
+    }
+    tick();
+  }
+
+  // せいかく
+  if (layout.natureBox) {
+    const canvas = cropForOCR(base, layout.natureBox);
+    if (onCrop) onCrop('nature', canvas);
+    const text = await recognize(w, canvas, { whitelist: NATURE_CHARS });
+    const matched = matchNature(text);
+    result.raw.nature = text;
+    log(`[せいかく] "${text}" → ${matched ? matched.name : '一致なし'}`);
+    if (matched) result.nature = NATURES.find(n => n.name === matched.name);
+    tick();
+  }
+
+  if (onProgress) onProgress(100);
+  return result;
+}
+
+  window.PSVision = { readStatusScreen, initOCR };
+})();
 
 /* きのみの基礎エナジー（タイプごと）。出典: pokesleep-tool の Berry.ts */
 const BERRY_BASE = {
@@ -635,6 +1704,147 @@ function addMon(){
   const sb = $("monSearch"); if (sb) sb.value = "";
   const ou = $("onlyUse"); if (ou) ou.checked = false;
   renderMons(); render();
+}
+
+/* ====== スクリーンショットから1匹読み込む ======
+   読み取りは pokesleep-vision（自作）が担当。文字を読む部分は Tesseract.js を使う。
+   読み取れるのは「ポケモン名・食材3枠・せいかく・サブスキル5枠」。
+   レベル・スキルLv・寝顔リボンは読めないので、あとから手で入れてもらう。 */
+let tesseractLoading = null;
+
+/* Tesseract.js をネットから読み込む（最初の1回だけ） */
+function loadTesseract(){
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (tesseractLoading) return tesseractLoading;
+  tesseractLoading = new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    el.onload = () => window.Tesseract ? resolve(window.Tesseract)
+                                       : reject(new Error("読み込めませんでした"));
+    el.onerror = () => reject(new Error("ネットにつながっていないかもしれません"));
+    document.head.appendChild(el);
+  });
+  return tesseractLoading;
+}
+
+/* 読み取った食材3つから、AAA などの食材構成を組み立てる */
+function comboFromNames(p, names){
+  const letters = ["A","B","C"];
+  let combo = "";
+  for (let sl = 0; sl < 3; sl++){
+    const want = names[sl];
+    let found = -1;
+    for (let k = 0; k < 3; k++){
+      if (p.ings[k] && p.ings[k][0] === want){ found = k; break; }
+    }
+    if (found === -1) return null;
+    if (sl === 0 && found !== 0) return null;
+    if (sl === 1 && found > 1)  return null;
+    combo += letters[found];
+  }
+  return combo;
+}
+
+function shotMsg(html, kind){
+  const color = kind === "ok" ? "var(--good)" : kind === "ng" ? "var(--bad)" : "var(--warn)";
+  $("shotMsg").innerHTML = `<div class="note" style="border-left-color:${color}">${html}</div>`;
+}
+
+async function readShot(file){
+  const drop = $("shotDrop");
+  if (!file || !file.type.startsWith("image/")){
+    shotMsg("画像ファイルを入れてください。", "ng");
+    return;
+  }
+  if (!window.PSVision){
+    shotMsg("読み取りの部品が入っていません。作り直しが必要です。", "ng");
+    return;
+  }
+
+  drop.classList.add("busy");
+  shotMsg("準備しています…（初めてのときは少し時間がかかります）");
+
+  try {
+    const tess = await loadTesseract();
+    await window.PSVision.initOCR(
+      (m) => { if (m && m.status) shotMsg("読み取り中… " + esc(m.status)); }, tess);
+
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await img.decode();
+
+    shotMsg("画像を読んでいます…");
+    const read = await window.PSVision.readStatusScreen(img, {
+      pokemonNames: Object.keys(POKE_BY_NAME)
+    });
+    URL.revokeObjectURL(img.src);
+
+    /* ---- 読み取れたものを、このツールの形に直す ---- */
+    const name = read.pokemonName;
+    const p = name ? POKE_BY_NAME[name] : null;
+    if (!p){
+      shotMsg(`ポケモンの名前が読み取れませんでした。<br>
+        （読めた文字：${esc(String(read.pokemonName || "なし"))}）<br>
+        画面全体がうつっているスクショか確かめてください。`, "ng");
+      return;
+    }
+
+    const ingNames = read.ingredients.map(x => x && x.name).filter(Boolean);
+    let combo = (ingNames.length === 3) ? comboFromNames(p, ingNames) : null;
+    const comboOk = combo !== null;
+    if (!comboOk) combo = "AAA";
+
+    const nat = (read.nature && NATURES[read.nature.name])
+      || { speed:0, ing:0, skill:0, energy:0 };
+
+    let subSpeed = 0, subIng = 0, subSkill = 0, inventoryUp = 0, recoveryBonus = 0;
+    let helpBonus = false, berryS = false;
+    const gotSubs = [];
+    for (const sk of (read.subSkills || [])){
+      if (!sk || !sk.name) continue;
+      gotSubs.push(sk.name);
+      const v = SUBSKILLS[sk.name];
+      if (!v) continue;
+      if (v[0] === "speed") subSpeed += v[1];
+      else if (v[0] === "ing") subIng += v[1];
+      else if (v[0] === "skill") subSkill += v[1];
+      else if (v[0] === "inventory") inventoryUp += v[1];
+      else if (v[0] === "recovery") recoveryBonus += 1;
+      else if (v[0] === "helpbonus") helpBonus = true;
+      else if (v[0] === "berry") berryS = true;
+    }
+
+    state.mons.push({
+      use: true, name, level: 50, combo, nickname: "",
+      natureSpeed: nat.speed, subSpeed,
+      natureIng: nat.ing, subIng,
+      natureSkill: nat.skill, subSkill,
+      natureEnergy: nat.energy, recoveryBonus, inventoryUp,
+      skillLevel: 6, ribbon: 0, helpBonus, berryS
+    });
+
+    /* 追加した行を開いた状態にして、レベルとリボンを入れてもらう */
+    listUi.open = state.mons.length - 1;
+    listUi.onlyUse = false; listUi.search = "";
+    const sb = $("monSearch"); if (sb) sb.value = "";
+    const ou = $("onlyUse"); if (ou) ou.checked = false;
+    renderMons(); render();
+
+    let m = `<b>${esc(name)} を追加しました。</b><br>`;
+    m += comboOk ? `食材構成：<b>${combo}</b>（${ingNames.map(esc).join("・")}）<br>`
+                 : `<span style="color:var(--warn)">食材構成が読み取れませんでした。手で選んでください。</span><br>`;
+    m += read.nature ? `せいかく：${esc(read.nature.name)}<br>` : `せいかく：読み取れず<br>`;
+    m += gotSubs.length ? `サブスキル：${gotSubs.map(esc).join("・")}<br>` : `サブスキル：読み取れず<br>`;
+    m += `<b>レベルと寝顔リボンは読み取れません。</b>下の一覧で開いている行に入れてください
+          （いまレベル50で入れてあります）。`;
+    shotMsg(m, "ok");
+
+  } catch (e){
+    shotMsg("読み取れませんでした：" + esc(e.message || String(e)) +
+            "<br>ネットにつながっているか確かめてください。", "ng");
+  } finally {
+    drop.classList.remove("busy");
+  }
 }
 
 /* ====== 個体値チェッカーのCSV／TSVを取り込む ====== */
@@ -2344,6 +3554,24 @@ $("fieldBonus").addEventListener("input", () => { renderRecipeLv(); render(); })
   $(id).addEventListener("input", () => { renderRecipeLv(); render(); }));
 $("addBtn").onclick = addMon;
 $("importBtn").onclick = importCsv;
+
+/* スクショの受け取り（クリック・ドラッグ＆ドロップ・貼り付け） */
+$("shotDrop").onclick = () => $("shotFile").click();
+$("shotFile").onchange = e => { if (e.target.files[0]) readShot(e.target.files[0]); e.target.value = ""; };
+["dragenter","dragover"].forEach(ev =>
+  $("shotDrop").addEventListener(ev, e => { e.preventDefault(); $("shotDrop").classList.add("over"); }));
+["dragleave","drop"].forEach(ev =>
+  $("shotDrop").addEventListener(ev, e => { e.preventDefault(); $("shotDrop").classList.remove("over"); }));
+$("shotDrop").addEventListener("drop", e => {
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (f) readShot(f);
+});
+document.addEventListener("paste", e => {
+  if (!$("shotBox").open) return;
+  for (const item of (e.clipboardData || {}).items || []){
+    if (item.type.startsWith("image/")){ readShot(item.getAsFile()); break; }
+  }
+});
 ["ncOn","ncLv","ncStop"].forEach(id =>
   $(id).addEventListener("change", () => { renderNc(); render(); }));
 renderNc();

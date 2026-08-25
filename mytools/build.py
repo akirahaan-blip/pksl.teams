@@ -614,6 +614,60 @@ def check_fields():
 
 
 # ---------------------------------------------------------------
+# 4-4. スクショ読み取りライブラリ（pokesleep-vision）を1つにまとめる
+#   もとは import / export で分かれた5つのファイル。
+#   index.html はファイルを直接開いて使うので、そのままでは読み込めない
+#   （ブラウザの決まりで、file:// では import が使えない）。
+#   そこで import / export を取り除いて1つにつなぎ、
+#   window.PSVision から使えるようにする。
+# ---------------------------------------------------------------
+VISION_DIR = os.path.join(HERE, "vision")
+VISION_ORDER = ["gamedata.js", "layout.js", "matching.js", "ingredients.js", "index.js"]
+
+
+def build_vision():
+    if not os.path.isdir(VISION_DIR):
+        die("スクショ読み取りのフォルダがありません: " + VISION_DIR)
+
+    parts = []
+    for name in VISION_ORDER:
+        path = os.path.join(VISION_DIR, name)
+        if not os.path.exists(path):
+            die("スクショ読み取りのファイルがありません: " + path)
+        with open(path, encoding="utf-8") as f:
+            code = f.read()
+
+        out_lines = []
+        skipping = False
+        for line in code.split("\n"):
+            st = line.strip()
+            # 「import 〜 from '...';」を丸ごと外す（複数行のこともある）
+            if skipping:
+                if "from" in st and st.endswith(";"):
+                    skipping = False
+                continue
+            if st.startswith("import "):
+                if not (st.endswith(";") and " from " in st):
+                    skipping = True
+                continue
+            # 「export { a, b } from '...';」のような再輸出も外す
+            if st.startswith("export {") or st.startswith("export *"):
+                if not st.endswith(";"):
+                    skipping = True
+                continue
+            # 「export const X」「export function f」→ export を外すだけ
+            if st.startswith("export "):
+                line = line.replace("export ", "", 1)
+            out_lines.append(line)
+
+        parts.append("/* ---- " + name + " ---- */\n" + "\n".join(out_lines))
+
+    body = "\n\n".join(parts)
+    return ("(function(){\n" + body +
+            "\n  window.PSVision = { readStatusScreen, initOCR };\n})();")
+
+
+# ---------------------------------------------------------------
 # 5. index.html を書き出す
 # ---------------------------------------------------------------
 def main():
@@ -664,6 +718,8 @@ def main():
         "const RECIPE_LEVEL_BONUS = %s;" % dump(RECIPE_LEVEL_BONUS),
     ])
 
+    vision = build_vision()
+
     tpl_path = os.path.join(HERE, "template.html")
     if not os.path.exists(tpl_path):
         die("template.html がありません: " + tpl_path)
@@ -673,7 +729,10 @@ def main():
     if "/*__DATA__*/" not in tpl:
         die("template.html に /*__DATA__*/ の目印がありません")
 
-    html = tpl.replace("/*__DATA__*/", data_js)
+    if "/*__VISION__*/" not in tpl:
+        die("template.html に /*__VISION__*/ の目印がありません")
+
+    html = tpl.replace("/*__DATA__*/", data_js).replace("/*__VISION__*/", vision)
 
     out_path = os.path.join(ROOT, "index.html")
     with open(out_path, "w", encoding="utf-8", newline="\n") as f:
@@ -682,6 +741,7 @@ def main():
     print("")
     print("index.html ができました → " + out_path)
     print("大きさ: %.0f KB" % (os.path.getsize(out_path) / 1024))
+    print("スクショ読み取り: %d ファイルを組み込みました" % len(VISION_ORDER))
 
 
 if __name__ == "__main__":
