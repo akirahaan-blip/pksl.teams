@@ -664,7 +664,7 @@ def build_vision():
 
     body = "\n\n".join(parts)
     return ("(function(){\n" + body +
-            "\n  window.PSVision = { readStatusScreen, initOCR };\n})();")
+            "\n  window.PSVision = { readStatusScreen, initOCR, detectLayout, classifyIngredientSlot, readPixels };\n})();")
 
 
 # ---------------------------------------------------------------

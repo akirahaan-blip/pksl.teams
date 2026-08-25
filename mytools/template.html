@@ -132,6 +132,10 @@ select:focus,input:focus{outline:2px solid var(--accent); outline-offset:1px}
 .lvgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:8px}
 .lvgrid label{font-size:12px; margin:0 0 2px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;font-weight:700}
 .lvgrid input{padding:5px 8px; font-size:13px;font-weight:700}
+#shotCrops{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
+#shotCrops figure{margin:0; text-align:center}
+#shotCrops figcaption{font-size:11px; color:var(--faint)}
+#shotCrops canvas{max-width:150px; border:1px solid var(--line); border-radius:6px; background:#fff}
 #shotDrop{
   border:2px dashed var(--line); border-radius:12px; padding:26px 14px;
   text-align:center; color:var(--dim); font-size:13px; cursor:pointer;
@@ -361,7 +365,11 @@ footer a{color:var(--faint)}
       <span style="font-size:12px">（押してファイルを選ぶこともできます）</span>
     </div>
     <input type="file" id="shotFile" accept="image/*" style="display:none">
+    <label class="chk" style="margin-top:8px">
+      <input type="checkbox" id="shotDebug"> うまく読めないとき：画面のどこを見たか表示する
+    </label>
     <div id="shotMsg" style="margin-top:8px"></div>
+    <div id="shotCrops"></div>
     <p class="hint">
       <b>読み取れるもの</b>：ポケモン名・食材3枠（AAAなど）・せいかく・サブスキル5枠<br>
       <b>読み取れないもの</b>：レベル・スキルLv・寝顔リボン → 追加したあとに手で入れてください<br>
@@ -634,7 +642,8 @@ function addMon(){
     ribbon:0,        /* 寝顔リボン 0〜4 */
     helpBonus:false, /* おてつだいボーナスを持っているか */
     berryS:false,    /* きのみの数S を持っているか */
-    nickname:""
+    nickname:"",
+    shotIngs:null
   });
   listUi.open = state.mons.length - 1;
   listUi.onlyUse = false;
@@ -712,25 +721,56 @@ async function readShot(file){
     await img.decode();
 
     shotMsg("画像を読んでいます…");
+    const debug = $("shotDebug").checked;
+    $("shotCrops").innerHTML = "";
+    if (debug){
+      /* もとの画像も出しておく（大きさの確認のため） */
+      const info = document.createElement("figure");
+      info.innerHTML = `<figcaption>もとの画像 ${img.naturalWidth}×${img.naturalHeight}</figcaption>`;
+      $("shotCrops").appendChild(info);
+    }
+
     const read = await window.PSVision.readStatusScreen(img, {
-      pokemonNames: Object.keys(POKE_BY_NAME)
+      pokemonNames: Object.keys(POKE_BY_NAME),
+      onCrop: debug ? (label, canvas) => {
+        const fig = document.createElement("figure");
+        const cap = document.createElement("figcaption");
+        cap.textContent = label;
+        fig.appendChild(canvas);
+        fig.appendChild(cap);
+        $("shotCrops").appendChild(fig);
+      } : undefined
     });
+
+    if (debug){
+      /* どこを見たかの情報も文字で出す */
+      try {
+        const cv = document.createElement("canvas");
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        cv.getContext("2d").drawImage(img, 0, 0);
+        const lay = window.PSVision.detectLayout ? window.PSVision.detectLayout(cv) : null;
+        if (lay){
+          const note = document.createElement("figure");
+          note.innerHTML = `<figcaption style="max-width:300px;text-align:left">
+            見つけた位置: ${esc(JSON.stringify(lay.notes || []).slice(0,300))}</figcaption>`;
+          $("shotCrops").appendChild(note);
+        }
+      } catch(e){}
+    }
     URL.revokeObjectURL(img.src);
 
     /* ---- 読み取れたものを、このツールの形に直す ---- */
-    const name = read.pokemonName;
-    const p = name ? POKE_BY_NAME[name] : null;
-    if (!p){
-      shotMsg(`ポケモンの名前が読み取れませんでした。<br>
-        （読めた文字：${esc(String(read.pokemonName || "なし"))}）<br>
-        画面全体がうつっているスクショか確かめてください。`, "ng");
-      return;
-    }
+    /* ニックネームを付けていると、名前の欄からは種類が分からない。
+       その場合でも読めたぶんは入れて、種類だけ手で選んでもらう。 */
+    const readName = read.pokemonName;
+    const p = readName ? POKE_BY_NAME[readName] : null;
+    const nameOk = !!p;
 
     const ingNames = read.ingredients.map(x => x && x.name).filter(Boolean);
-    let combo = (ingNames.length === 3) ? comboFromNames(p, ingNames) : null;
+    let combo = (p && ingNames.length === 3) ? comboFromNames(p, ingNames) : null;
     const comboOk = combo !== null;
     if (!comboOk) combo = "AAA";
+    const name = nameOk ? readName : "";
 
     const nat = (read.nature && NATURES[read.nature.name])
       || { speed:0, ing:0, skill:0, energy:0 };
@@ -753,7 +793,10 @@ async function readShot(file){
     }
 
     state.mons.push({
-      use: true, name, level: 50, combo, nickname: "",
+      use: true, name, level: 50, combo,
+      nickname: nameOk ? "" : String(readName || "").slice(0, 12),
+      /* あとで種類を選んだときに、食材構成を組み立て直すために覚えておく */
+      shotIngs: ingNames.length === 3 ? ingNames : null,
       natureSpeed: nat.speed, subSpeed,
       natureIng: nat.ing, subIng,
       natureSkill: nat.skill, subSkill,
@@ -768,14 +811,29 @@ async function readShot(file){
     const ou = $("onlyUse"); if (ou) ou.checked = false;
     renderMons(); render();
 
-    let m = `<b>${esc(name)} を追加しました。</b><br>`;
-    m += comboOk ? `食材構成：<b>${combo}</b>（${ingNames.map(esc).join("・")}）<br>`
-                 : `<span style="color:var(--warn)">食材構成が読み取れませんでした。手で選んでください。</span><br>`;
-    m += read.nature ? `せいかく：${esc(read.nature.name)}<br>` : `せいかく：読み取れず<br>`;
-    m += gotSubs.length ? `サブスキル：${gotSubs.map(esc).join("・")}<br>` : `サブスキル：読み取れず<br>`;
+    let m = "";
+    if (nameOk){
+      m += `<b>${esc(name)} を追加しました。</b><br>`;
+    } else {
+      m += `<b>1匹ぶんを追加しました。</b><br>
+        <span style="color:var(--warn)">ポケモンの種類が分かりませんでした`
+        + (readName ? `（読めた文字：${esc(String(readName))}）` : "")
+        + `。ニックネームを付けていると読めません。<br>
+        <b>下の行の「ポケモン」欄に、種類の名前を入れてください。</b>
+        入れれば食材構成も自動で決まります。</span><br>`;
+    }
+    if (ingNames.length === 3){
+      m += `読み取れた食材：${ingNames.map(esc).join("・")}`
+         + (comboOk ? ` → <b>${combo}</b>` : "（種類が決まれば構成も決まります）") + `<br>`;
+    } else {
+      m += `<span style="color:var(--warn)">食材が読み取れませんでした（${ingNames.length}／3個）。手で選んでください。</span><br>`;
+    }
+    m += read.nature ? `せいかく：${esc(read.nature.name)}<br>` : `<span style="color:var(--warn)">せいかく：読み取れず</span><br>`;
+    m += gotSubs.length ? `サブスキル：${gotSubs.map(esc).join("・")}<br>`
+                        : `<span style="color:var(--warn)">サブスキル：読み取れず。手で入れてください。</span><br>`;
     m += `<b>レベルと寝顔リボンは読み取れません。</b>下の一覧で開いている行に入れてください
           （いまレベル50で入れてあります）。`;
-    shotMsg(m, "ok");
+    shotMsg(m, nameOk && comboOk ? "ok" : "warn");
 
   } catch (e){
     shotMsg("読み取れませんでした：" + esc(e.message || String(e)) +
@@ -1066,6 +1124,15 @@ function renderMons(){
       inp.addEventListener(ev, () => {
         const before = isCookingUp(state.mons[i].name);
         if (f === "name" || f === "combo") state.mons[i][f] = inp.value;
+        /* スクショから読んだ食材が残っていれば、種類が決まった時点で構成を決める */
+        if (f === "name"){
+          const m2 = state.mons[i];
+          const q = POKE_BY_NAME[inp.value];
+          if (q && m2.shotIngs){
+            const c = comboFromNames(q, m2.shotIngs);
+            if (c){ m2.combo = c; renderMons(); render(); return; }
+          }
+        }
         else if (f === "helpBonus" || f === "berryS") state.mons[i][f] = (inp.value === "1");
         else state.mons[i][f] = Number(inp.value);
 
