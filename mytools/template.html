@@ -657,7 +657,8 @@ function favTypes(){
   const f = FIELDS[state.fieldIndex];
   const base = (f.types === null) ? state.wakakusaTypes : f.types;
   if (!f.ex) return base;
-  const m = Math.min(Math.max(state.favMain, 0), base.length - 1);
+  /* mainOnly のフィールド（シアンEX）は、1つめに選んだものが必ずメイン */
+  const m = f.mainOnly ? 0 : Math.min(Math.max(state.favMain, 0), base.length - 1);
   return [base[m]].concat(base.filter((_, i) => i !== m));
 }
 
@@ -681,13 +682,23 @@ function renderBerries(){
   let html = "";
 
   if (f.types === null){
-    /* 好みのきのみが毎週ランダムなので、自分で3つ選ぶ */
-    const opts = t => types.map(x =>
+    /* 好みのきのみが毎週ランダムなので、自分で3つ選ぶ。
+       シアンの砂浜EXは「メインだけ3種から、のこり2つは全タイプ」なので、
+       1つめだけ候補をしぼる（mainOnly） */
+    const opts = (t, only) => (only || types).map(x =>
       `<option value="${esc(x)}"${x===t?" selected":""}>${esc(BERRY_BY_TYPE[x])}（${esc(x)}）</option>`).join("");
     html += '<div class="row" style="margin-top:8px">' +
       base.map((t,i) =>
-        `<div><label>好みのきのみ ${i+1}</label><select data-wk="${i}">${opts(t)}</select></div>`).join("") +
+        `<div><label>好みのきのみ ${i+1}${(f.mainOnly && i === 0) ? "（メイン）" : ""}</label>` +
+        `<select data-wk="${i}">${opts(t, (f.mainOnly && i === 0) ? f.mainOnly : null)}</select></div>`).join("") +
       '</div>';
+    if (f.mainOnly){
+      html += `<p class="hint" style="margin-top:6px">
+        <b>${esc(f.n)}</b> は、<b>メイン</b>が
+        ${f.mainOnly.map(t => esc(BERRY_BY_TYPE[t]) + "（" + esc(t) + "）").join("・")}
+        の中から選ばれ、<b>のこりの2つは全タイプからランダム</b>に決まります。
+        今週のものを選んでください。</p>`;
+    }
   } else {
     html += '<div class="berries">' +
       base.map(t => `<span class="berry">${esc(BERRY_BY_TYPE[t])}（${esc(t)}）</span>`).join("") +
@@ -695,15 +706,18 @@ function renderBerries(){
   }
 
   if (f.ex){
-    /* EXフィールドは「メインの好みのきのみ」だけ特別に速くなる */
     const b = EX_BONUS[f.ex];
+    /* 「どれがメインか」を選ばせる。ただし mainOnly のフィールドは
+       上で1つめをメインとして選ばせているので、ここには出さない */
+    if (!f.mainOnly){
+      html += '<div class="row" style="margin-top:8px"><div>' +
+        '<label>メインの好みのきのみ（どれがメイン？）</label>' +
+        '<select id="favMain">' +
+        base.map((t,i) =>
+          `<option value="${i}"${i===state.favMain?" selected":""}>${esc(BERRY_BY_TYPE[t])}（${esc(t)}）</option>`).join("") +
+        '</select></div></div>';
+    }
     html += '<div class="row" style="margin-top:8px"><div>' +
-      '<label>メインの好みのきのみ（どれがメイン？）</label>' +
-      '<select id="favMain">' +
-      base.map((t,i) =>
-        `<option value="${i}"${i===state.favMain?" selected":""}>${esc(BERRY_BY_TYPE[t])}（${esc(t)}）</option>`).join("") +
-      '</select></div></div>' +
-      '<div class="row" style="margin-top:8px"><div>' +
       '<label>今週のEXのバフ</label>' +
       '<select id="exEffect">' +
       Object.keys(EX_EFFECT).map(k =>
@@ -2120,11 +2134,19 @@ function nightcapPerDay(){
 /* カバン（最大所持数）の上限。
    出典: PokemonIv.ts　基本値 + 5×進化回数 + 寝顔リボン + 最大所持数アップ×6、
    いいキャンプチケットで ×1.2 */
+/* シアンの砂浜EXは、最大所持数が全員 +5 される
+   （出典: pokesleep-tool の PokemonStrength.ts cbexCarryLimitAdd = 5） */
+function exCarryAdd(){
+  const f = FIELDS[state.fieldIndex];
+  return (f && f.ex === "cbex") ? 5 : 0;
+}
+
 function carryLimitOf(p, m){
   const base = p.cl
     + BAG.perEvolution * Math.max(0, p.ec || 0)
     + (BAG.ribbon[Math.min(m.ribbon || 0, 4)] || 0)
-    + (m.inventoryUp || 0) * BAG.perInventorySub;
+    + (m.inventoryUp || 0) * BAG.perInventorySub
+    + exCarryAdd();
   return Math.ceil(base * (hasTicket() ? BAG.ticketMul : 1));
 }
 
