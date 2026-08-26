@@ -821,11 +821,14 @@ function applyNatureSubs(m){
 }
 
 /* ---- 手入力の欄に出す、せいかく25種類とサブスキル12種類のえらび肢 ---- */
+/* ゲームの「せいかく」の画面に出ている項目名にそろえてある。
+   EXP獲得量はこのツールの計算には関係しないが、どのせいかくか見分けるために出す */
 const NATURE_WORDS = {
-  speed:  ["おてつだいが速い", "おてつだいが遅い"],
-  ing:    ["食材が出やすい",   "食材が出にくい"],
-  skill:  ["スキルが出やすい", "スキルが出にくい"],
-  energy: ["げんきが回復しやすい", "げんきが回復しにくい"]
+  speed:  "おてつだいスピード",
+  ing:    "食材おてつだい確率",
+  skill:  "メインスキル発生確率",
+  energy: "げんき回復量",
+  exp:    "EXP獲得量"
 };
 function natureOptions(cur){
   let html = `<option value=""${cur ? "" : " selected"}>（えらんでください）</option>`;
@@ -833,10 +836,10 @@ function natureOptions(cur){
     const n = NATURES[name];
     let up = "", down = "";
     for (const key in NATURE_WORDS){
-      if (n[key] === 1)  up   = "↑" + NATURE_WORDS[key][0];
-      if (n[key] === -1) down = "↓" + NATURE_WORDS[key][1];
+      if (n[key] === 1)  up   = "↑" + NATURE_WORDS[key];
+      if (n[key] === -1) down = "↓" + NATURE_WORDS[key];
     }
-    const note = (up || down) ? `（${[up, down].filter(Boolean).join(" ")}）` : "（じょうずへたなし）";
+    const note = (up || down) ? `（${[up, down].filter(Boolean).join(" ")}）` : "（せいかくによる特徴なし）";
     html += `<option value="${esc(name)}"${name === cur ? " selected" : ""}>${esc(name)}${note}</option>`;
   }
   return html;
@@ -856,7 +859,8 @@ function hasOldSubs(m){
 }
 
 /* 前の作りで保存したもの（数値しか持っていない）から、せいかくの名前を逆に引く。
-   すべて0のせいかくは5種類あるが、効き目は同じなので最初に見つかったものでよい */
+   すべて0のせいかくは5種類あるが、効き目は同じなので最初に見つかったものでよい。
+   EXP獲得量は保存されていないので見ない（他の4つだけで1つに決まる） */
 function natureNameFrom(m){
   for (const k in NATURES){
     const n = NATURES[k];

@@ -538,6 +538,10 @@ ING_DOWN   = ["Impish", "Jolly", "Adamant", "Careful"]
 # メインスキル発生確率が上がる／下がる性格
 SKILL_UP   = ["Calm", "Gentle", "Careful", "Sassy"]
 SKILL_DOWN = ["Lax", "Naive", "Naughty", "Rash"]
+# EXP獲得量が上がる／下がる性格。
+# このツールの計算には使わないが、せいかくをえらぶ画面に出すために持っている
+EXP_UP     = ["Timid", "Hasty", "Jolly", "Naive"]
+EXP_DOWN   = ["Relaxed", "Brave", "Sassy", "Quiet"]
 
 
 def build_natures():
@@ -550,13 +554,15 @@ def build_natures():
             "ing":   1 if en in ING_UP   else -1 if en in ING_DOWN   else 0,
             "skill": 1 if en in SKILL_UP else -1 if en in SKILL_DOWN else 0,
             "energy": 1 if en in ENERGY_UP else -1 if en in ENERGY_DOWN else 0,
+            "exp":   1 if en in EXP_UP   else -1 if en in EXP_DOWN   else 0,
         }
 
     # 上がる／下がるが全部そろっているか確認する
     for name, lst in [("SPEED_UP", SPEED_UP), ("SPEED_DOWN", SPEED_DOWN),
                       ("ING_UP", ING_UP), ("ING_DOWN", ING_DOWN),
                       ("SKILL_UP", SKILL_UP), ("SKILL_DOWN", SKILL_DOWN),
-                      ("ENERGY_UP", ENERGY_UP), ("ENERGY_DOWN", ENERGY_DOWN)]:
+                      ("ENERGY_UP", ENERGY_UP), ("ENERGY_DOWN", ENERGY_DOWN),
+                      ("EXP_UP", EXP_UP), ("EXP_DOWN", EXP_DOWN)]:
         for en in lst:
             if en not in nat_ja:
                 die("せいかく「%s」（%s）の日本語名が見つかりません" % (en, name))
