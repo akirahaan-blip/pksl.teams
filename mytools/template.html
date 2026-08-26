@@ -463,6 +463,10 @@ footer a{color:var(--faint)}
 
 <section>
   <h2><span class="num">5</span>おすすめの編成</h2>
+  <label class="chk" style="margin:2px 0 8px">
+    <input type="checkbox" id="keepEnergy" checked>
+    <span><b>げんきを100に近く保つ</b>（ヒーラーを入れた編成にする）</span>
+  </label>
   <div id="autoResult"><p class="empty">上で手持ちを読み込むと、ここに答えが出ます。</p></div>
   <p class="hint" style="margin-top:10px">
     <b>この結果は試算です。</b>料理の大成功のような<b>運の要素は平均でならして</b>計算しているので、
@@ -2130,6 +2134,17 @@ function freqRateByEnergy(e){
 
 /* 1日ぶんのおてつだい回数を、げんきの上がり下がりを追いながら数える。
    healPerDay = その子が1日に受け取るげんき回復量（ヒーラーのぶん） */
+/* 「げんきを100に近く保つ」にチェックが入っているか */
+function keepEnergy(){ const el = $("keepEnergy"); return el ? el.checked : false; }
+
+/* 1日に減るげんきの量。起きている10分ごとに1%ずつ減るので、その合計。
+   チーム全体の回復がこれ以上あれば、げんきは100のまま保てる */
+function energyNeedPerDay(){
+  const sleepMin = sleepScore() * ENERGY.sleepFullMinutes / 100;
+  const awakeMin = 1440 - sleepMin;
+  return awakeMin / 10 * ENERGY.decayPer10min;
+}
+
 function simulateDay(baseInterval, healPerDay, m, bagLimit, itemsPerHelp){
   const score    = sleepScore();
   const sleepMin = score * ENERGY.sleepFullMinutes / 100;
@@ -2731,7 +2746,19 @@ function evalAlloc(alloc, cands, D){
   /* 1週間の献立を組む */
   const menu = planCooking(have, capByDay, D, chancePerDay, stockOf());
 
-  return { total: berry + menu.total, berry, menu, have, helpers, capByDay, chancePerDay,
+  const total = berry + menu.total;
+  /* げんきを保つことを優先するとき、保ちきれない編成は選ばれにくくする。
+     ヒーラーを1匹も持っていない人は全部の編成が同じだけ下がるので、順位は変わらない。
+     表示する合計エナジーには手を入れない（数字をいじると分からなくなるため） */
+  const need  = energyNeedPerDay();
+  const keeps = healBase >= need;
+  /* 足りない分に応じて、なだらかに下げる。
+     「足りなければ一律に大きく下げる」だと、ヒーラー2匹でようやく足りる場合に
+     1匹目を入れた時点で損になり、そこで探索が止まってしまう（坂を登れない）。 */
+  const ratio = Math.min(1, healBase / Math.max(1, need));
+  const rank  = keepEnergy() ? total * (0.25 + 0.75 * ratio) : total;
+
+  return { total, rank, keeps, berry, menu, have, helpers, capByDay, chancePerDay,
            healIdx, healBase, nc };
 }
 
@@ -2750,7 +2777,7 @@ function localSearch(alloc, cands, D){
         if (i === j || cur[j] >= D) continue;
         cur[i]--; cur[j]++;
         const s = evalAlloc(cur, cands, D);
-        if (s.total > score.total + 1e-9){ score = s; improved = true; }
+        if (s.rank > score.rank + 1e-9){ score = s; improved = true; }
         else { cur[i]++; cur[j]--; }
       }
     }
@@ -2793,7 +2820,7 @@ function optimizeTeam(){
   for (const a of starts){
     if (a.reduce((x,y) => x+y, 0) !== size * D) continue;
     const r = localSearch(a, cands, D);
-    if (!best || r.score.total > best.score.total) best = r;
+    if (!best || r.score.rank > best.score.rank) best = r;
   }
   if (!best) return null;
 
@@ -2867,6 +2894,12 @@ function renderAuto(){
       html += `（料理チャンスSで平均 +${score.menu.chancePct.toFixed(0)}% ／ 大成功する割合 ${(score.menu.successRate*100).toFixed(0)}%）`;
     }
     if (sundayOn()) html += `／ 最終日を日曜として計算（なべ2倍・大成功3倍）`;
+    /* げんきが保てているか。1日に減るぶんと、チームの回復量をくらべる */
+    const need = energyNeedPerDay();
+    const got  = Math.round(score.healBase);
+    html += `<br>げんき：${score.keeps
+      ? `<b>100 を保てます</b>（1日に減る ${Math.round(need)} に対して、回復 ${got}）`
+      : `<b style="color:var(--warn)">100 は保てません</b>（1日に減る ${Math.round(need)} に対して、回復 ${got}）`}`;
     html += `</div></div>`;
     const cooked = menuList.reduce((a,b) => a + b[1], 0);
     html += `<h2 style="margin-top:16px">1週間の献立（${D*3}食のうち ${cooked}食）</h2>
@@ -3235,6 +3268,7 @@ $("boxCopyBtn").onclick = async () => {
 };
 $("boxFromTextBtn").onclick = () => importBoxText($("boxText").value);
 ["sleepScore","days","potAdd"].forEach(id => $(id).addEventListener("input", () => { renderPotView(); render(); }));
+$("keepEnergy").addEventListener("change", () => render());
 ["pot","ticket"].forEach(id => $(id).addEventListener("change", () => { renderPotView(); render(); }));
 
 /* 前に保存したポケモンがあれば読み出す */
