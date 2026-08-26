@@ -2295,7 +2295,7 @@ function gatherIngredients(){
     if (!q || !INGREDIENT_MAGNET[q.sk]) continue;
     const st = perDayStats(m, helpBonusCount);
     if (!st) continue;
-    const each = st.magnetPerDay * days / ING_KINDS;
+    const each = st.magnetPerDay * MAGNET_USABLE * days / ING_KINDS;
     for (const k of ING_LIST) have[k] = (have[k] || 0) + each;
     /* プラスの追加ぶん（対になる子が自分以外にいるとき） */
     if (st.plusPerDay > 0 && pmCount >= 2){
@@ -2578,6 +2578,11 @@ function perDayStats(m, helpers, healPerDay){
 
   /* 食材ゲットS。1日に何個もらえるか（どの食材かはランダムなので、あとで19種にならす） */
   const mag = INGREDIENT_MAGNET[p.sk];
+  /* 食材ゲットSは「ランダムに3種類」もらうスキル。ここでは19種にならして足しているが、
+     実際には狙った料理の材料になるとは限らず、余りやすい。
+     （プレイしている人の実感：食材が足りないときの穴うめにしか使わない）
+     そこで、使える分は半分と見て数える。種類が決まっている
+     「プラスの追加ぶん」や「食材セレクトS」には、この割引をかけない。 */
   const magnetPerDay = mag ? normalHelps * skillRate(p, m) * mag[lv - 1] : 0;
   /* プラス側の追加ぶん。対になる子がチームにいるときだけ、1枠目の食材をもらう */
   const plusPerDay = (mag && isPlus(p.sk))
@@ -2727,7 +2732,7 @@ function evalAlloc(alloc, cands, D){
   /* 食材ゲットS。どの食材かはランダムなので19種にならす。
      プラス側は、対になる子がいる日だけ1枠目の食材を追加でもらう */
   for (const x of magnets){
-    const each = x.s.magnetPerDay * x.days / ING_KINDS;
+    const each = x.s.magnetPerDay * MAGNET_USABLE * x.days / ING_KINDS;
     for (const k of ING_LIST) have[k] = (have[k] || 0) + each;
     if (x.s.plusPerDay > 0 && pmDays - x.days > 0){
       /* 自分以外にプラス・マイナス持ちがいた日数のぶんだけ */
@@ -2957,7 +2962,7 @@ function renderAuto(){
         for (const k of ING_LIST){
           (supply[k] = supply[k] || []).push({
             who: (cands[i].nickname || cands[i].name) + "（食材ゲットS）",
-            combo: "", amount: st.magnetPerDay * d / ING_KINDS
+            combo: "", amount: st.magnetPerDay * MAGNET_USABLE * d / ING_KINDS
           });
         }
         if (st.plusPerDay > 0){

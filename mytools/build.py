@@ -396,6 +396,10 @@ PLUS_BONUS_COUNT = 14
 
 # 食材の種類数（食材ゲットSをならすのに使う）
 ING_KINDS = 19
+# 食材ゲットSでもらえる食材のうち、実際に料理へ使える割合。
+# ランダムに3種類もらうスキルなので、狙った料理の材料になるとは限らない。
+# プレイしている人の実感（余りの穴うめにしか使わない）に合わせて 0.5 にしてある。
+MAGNET_USABLE = 0.5
 
 # ---------------------------------------------------------------
 # ナイトキャップをかぶったピカチュウ（Pokémon GO Plus+ の連携特典）
@@ -706,6 +710,7 @@ def main():
         "const COOKING_UP = %s;" % dump(COOKING_UP),
         "const TASTY_CHANCE = %s;" % dump(TASTY_CHANCE),
         "const INGREDIENT_MAGNET = %s;" % dump(INGREDIENT_MAGNET),
+        "const MAGNET_USABLE = %s;" % MAGNET_USABLE,
         "const PLUS_BONUS_COUNT = %d;" % PLUS_BONUS_COUNT,
         "const ING_KINDS = %d;" % ING_KINDS,
         "const BAG = %s;" % dump(BAG),
