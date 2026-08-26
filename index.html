@@ -2,19 +2,19 @@
 <html lang="ja">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ポケスリ最適チーム診断ツール｜今週いちばん稼げる料理と5匹を自動でさがす</title>
-<meta name="description" content="ポケモンスリープで、今週のカビゴンのリクエストと手持ちのポケモンから、いちばんエナジーを稼げる料理とチーム5匹を自動でさがします。個体値計算機のCSVやスクリーンショットから読み込めます。">
+<title>ポケスリ チーム編成ナビ｜今週よく稼げる料理とチーム5匹をさがす</title>
+<meta name="description" content="ポケモンスリープで、今週のカビゴンのリクエストと手持ちのポケモンから、よくエナジーを稼げる料理とチーム5匹をさがします。個体値計算機のCSVやスクリーンショットから読み込めます。">
 <!-- アイコン。teams.png から build.py が各サイズを作っている -->
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1C0E15">
-<meta name="apple-mobile-web-app-title" content="チーム診断">
+<meta name="apple-mobile-web-app-title" content="編成ナビ">
 <meta name="mobile-web-app-capable" content="yes">
 <meta property="og:type" content="website">
-<meta property="og:title" content="ポケスリ最適チーム診断ツール">
-<meta property="og:description" content="今週のカテゴリと手持ちから、いちばんエナジーを稼げる料理とチーム5匹を自動でさがします。">
+<meta property="og:title" content="ポケスリ チーム編成ナビ">
+<meta property="og:description" content="今週のカテゴリと手持ちから、よくエナジーを稼げる料理とチーム5匹をさがします。">
 <meta property="og:url" content="https://akirahaan-blip.github.io/pksl.teams/">
 <meta property="og:image" content="https://akirahaan-blip.github.io/pksl.teams/icon-512.png">
 <meta name="twitter:card" content="summary">
@@ -257,9 +257,9 @@ footer a{color:var(--faint)}
 <div class="wrap">
 
 <header>
-  <h1><span class="em">🍳</span>ポケスリ最適チーム診断ツール</h1>
+  <h1><span class="em">🍳</span>ポケスリ チーム編成ナビ</h1>
   <p class="lead">今週のカビゴンがリクエストしたカテゴリの中で、手持ちのメンバーが集める食材で
-     いちばんエナジーを稼げる料理をさがします。</p>
+     よくエナジーを稼げる料理とチームをさがします。</p>
 </header>
 
 <section>
@@ -462,8 +462,15 @@ footer a{color:var(--faint)}
 </section>
 
 <section>
-  <h2><span class="num">5</span>いちばんエナジーを稼げる編成</h2>
+  <h2><span class="num">5</span>おすすめの編成</h2>
   <div id="autoResult"><p class="empty">上で手持ちを読み込むと、ここに答えが出ます。</p></div>
+  <p class="hint" style="margin-top:10px">
+    <b>この結果は試算です。</b>料理の大成功のような<b>運の要素は平均でならして</b>計算しているので、
+    実際の数字は上にも下にもぶれます。また、入れた情報（レシピレベル・食材の在庫・
+    フィールドボーナスなど）が変わると、おすすめも変わります。<br>
+    <b>「これが唯一の正解」というものではありません。</b>編成を考えるときの
+    ひとつの目安として使ってください。
+  </p>
 </section>
 
 <section>
@@ -2855,7 +2862,7 @@ function applyBoxData(data, kind){
   render();
   boxFileMsg(`ポケモン <b>${mons.length}匹</b>` +
     (lvN ? `／レシピレベル <b>${lvN}品</b>` : "") +
-    ` を読み込みました。下の「いちばんエナジーを稼げる編成」も計算し直しています。`, "ok");
+    ` を読み込みました。下の「おすすめの編成」も計算し直しています。`, "ok");
   return true;
 }
 
@@ -4072,7 +4079,7 @@ function renderAuto(){
   html += `<div class="note"><b>この組み合わせの出し方について。</b>
     7日×5枠の並べ方は数が多すぎて全部は試せないので、
     「誰を何日入れるか」を少しずつ入れ替えて良くしていく方法で出しています。
-    ほぼ最適ですが、まれにもう少し良い組み合わせを取りこぼすことがあります。<br>
+    かなり良いところまで出ますが、まれにもう少し良い組み合わせを取りこぼすことがあります。<br>
     また、おてつだいボーナスとヒーラーの回復量は、日ごとではなく
     <b>1週間の平均</b>で計算しています。カバンの上限は<b>ねている間だけ</b>計算に入れています。</div>`;
 
