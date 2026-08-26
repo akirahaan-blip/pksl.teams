@@ -2349,9 +2349,30 @@ function importCsv(){
   }
 
   if (added.length === 0){
-    msg.innerHTML = `<div class="note">1匹も読み取れませんでした。
-      個体値チェッカーの「ボックス」→「エクスポート」で出た文字を、
-      そのまま貼り付けてください。</div>`;
+    /* なぜ読めなかったのか分からないと直しようがないので、手がかりを出す。
+       貼り付けた文字が、こちらの思っている形になっているかを見てもらう */
+    const 手がかり = lines.slice(0, 3).map((l, k) => {
+      const c = splitLine(l, sep);
+      return `${k+1}行目：<b>${c.length}列</b>ぶん ／ 2列目（ポケモンの名前のはず）＝
+              「<b>${esc(String(c[1] || "").slice(0, 20))}</b>」`;
+    }).join("<br>");
+    msg.innerHTML = `<div class="note" style="border-left-color:var(--bad)">
+      <b>1匹も読み取れませんでした。</b><br>
+      個体値チェッカーの「ボックス」→ <b>…</b>（三点）→「エクスポート」で、
+      形式を <b>CSV</b> にして<b>コピー</b>したものを貼り付けてください。
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer">なぜ読めなかったのか見る</summary>
+        <div style="margin-top:6px; font-size:12px; line-height:1.9">
+          貼り付けた行数：<b>${lines.length}行</b><br>
+          区切り：<b>${sep === "\t" ? "タブ" : "カンマ"}</b>と判断<br>
+          ${手がかり}
+          ${skipped.length ? `<br>名前が分からなかったもの：${esc(skipped.slice(0,5).join("、"))}` : ""}
+          <br><span style="color:var(--faint)">※2列目に<b>日本語のポケモン名</b>（例：ライチュウ）が
+          入っていて、列が16列ぶんあれば読めます。ここがちがっていたら、
+          その中身を作った人に伝えてください。</span>
+        </div>
+      </details>
+    </div>`;
     return;
   }
 
