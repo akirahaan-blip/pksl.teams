@@ -112,6 +112,23 @@ select:focus,input:focus{outline:2px solid var(--accent); outline-offset:1px}
 .mon .nm .sub{color:var(--faint); font-size:11.5px; margin-left:6px;font-weight:700}
 .mon .sub2{color:var(--faint); font-size:11px; margin-left:6px;font-weight:700}
 .mon .meta{color:var(--faint); font-size:12px; flex:0 0 auto; white-space:nowrap;font-weight:700}
+/* お気に入りの星 */
+.mon .fav{
+  background:none; border:none; cursor:pointer; font-size:17px; line-height:1;
+  padding:5px 7px; margin:-3px 0; flex:0 0 auto; color:var(--faint);font-weight:700
+}
+.mon .fav.on{color:#F2B01E}
+.mon .fav:hover{color:#F2B01E}
+/* とくい分野の札。ポケモンのデータで決まっているので自動で付く。
+   色はきのみ＝緑／食材＝オレンジ／スキル＝青。ここはピンクにそろえない
+   （見分けるための色なので） */
+.tag{
+  font-size:10.5px; border-radius:999px; padding:1px 7px; margin-left:6px;
+  border:1px solid currentColor; white-space:nowrap; flex:0 0 auto;font-weight:700
+}
+.tag.t-berry{color:#2E9E63}
+.tag.t-ing{color:#C8791B}
+.tag.t-skill{color:#3D82C4}
 .mon .exp{
   background:none; border:1px solid var(--line); color:var(--dim);
   border-radius:7px; padding:2px 9px; font:inherit; font-size:12px; cursor:pointer;
@@ -463,10 +480,24 @@ footer a{color:var(--faint)}
         <label for="monSort">ならべ方</label>
         <select id="monSort">
           <option value="import">読み込んだ順</option>
+          <option value="fav">★お気に入りが先</option>
           <option value="berry">きのみエナジーが高い順</option>
           <option value="level">レベルが高い順</option>
           <option value="name">名前順</option>
         </select>
+      </div>
+      <div style="flex:1 1 140px">
+        <label for="monType">とくい分野</label>
+        <select id="monType">
+          <option value="">ぜんぶ</option>
+          <option value="きのみ">きのみとくい</option>
+          <option value="食材">食材とくい</option>
+          <option value="スキル">スキルとくい</option>
+        </select>
+      </div>
+      <div style="flex:0 1 auto">
+        <label style="visibility:hidden">.</label>
+        <label class="chk"><input type="checkbox" id="onlyFav"> ★だけ</label>
       </div>
       <div style="flex:0 1 auto">
         <label style="visibility:hidden">.</label>
@@ -2347,7 +2378,13 @@ function importCsv(){
    ふだんは1行ずつの小さい表示にして、開いたときだけ細かく直せるようにする。 */
 
 /* 一覧のしぼりこみ・並べ替えの状態 */
-const listUi = { search: "", sort: "import", onlyUse: false, open: null };
+const listUi = { search: "", sort: "import", onlyUse: false, onlyFav: false, type: "", open: null };
+
+/* そのポケモンのとくい分野（きのみ／食材／スキル）。データで決まっている */
+function specialtyOf(m){
+  const p = POKE_BY_NAME[m && m.name];
+  return p ? p.sp : "";
+}
 
 /* 表示する順番（state.mons の番号の配列）を作る */
 function visibleRows(){
@@ -2355,6 +2392,8 @@ function visibleRows(){
   let rows = state.mons.map((m, i) => i);
 
   if (listUi.onlyUse) rows = rows.filter(i => state.mons[i].use);
+  if (listUi.onlyFav) rows = rows.filter(i => state.mons[i].fav);
+  if (listUi.type)    rows = rows.filter(i => specialtyOf(state.mons[i]) === listUi.type);
   if (q !== ""){
     rows = rows.filter(i => {
       const m = state.mons[i];
@@ -2369,6 +2408,8 @@ function visibleRows(){
   if (listUi.sort === "name")  rows.sort((a,b) => (state.mons[a].name||"").localeCompare(state.mons[b].name||"", "ja"));
   if (listUi.sort === "level") rows.sort((a,b) => state.mons[b].level - state.mons[a].level);
   if (listUi.sort === "berry") rows.sort((a,b) => berryOf(b) - berryOf(a));
+  /* お気に入りを先に。同じ印どうしは読み込んだ順のまま */
+  if (listUi.sort === "fav")   rows.sort((a,b) => (state.mons[b].fav?1:0) - (state.mons[a].fav?1:0));
   return rows;
 }
 
@@ -2452,10 +2493,17 @@ function renderMons(){
       </div>`;
     }
 
+    /* とくい分野の札。データで決まっているので自動で付く */
+    const sp = p ? p.sp : "";
+    const tagCls = sp === "きのみ" ? "t-berry" : sp === "食材" ? "t-ing" : sp === "スキル" ? "t-skill" : "";
+    const tag = sp ? `<span class="tag ${tagCls}">${esc(sp)}</span>` : "";
+
     return `<div class="mon${m.use ? "" : " off"}${open ? " open" : ""}" data-i="${i}">
       <div class="head">
         <label class="use"><input type="checkbox" data-use="${i}"${m.use ? " checked" : ""}></label>
-        <span class="nm">${title}</span>
+        <button class="fav${m.fav ? " on" : ""}" data-fav="${i}"
+                title="${m.fav ? "お気に入りをはずす" : "お気に入りに入れる"}">${m.fav ? "★" : "☆"}</button>
+        <span class="nm">${title}${tag}</span>
         <span class="meta">Lv${m.level}・${esc(m.combo)}${marks ? " " + marks : ""}</span>
         <button class="exp" data-exp="${i}">${open ? "とじる" : "ひらく"}</button>
         <button class="del" data-del="${i}">けす</button>
@@ -2517,6 +2565,15 @@ function renderMons(){
     if (lvInput) lvInput.addEventListener("blur", () => { renderMons(); render(); });
   }
 
+  /* ★お気に入り。押すたびに入れる／はずすが切りかわる。
+     state.mons に入るので、ボックスにも書き出したファイルにも一緒に残る */
+  box.querySelectorAll("[data-fav]").forEach(b => {
+    b.onclick = () => {
+      const i = Number(b.dataset.fav);
+      state.mons[i].fav = !state.mons[i].fav;
+      renderMons(); render();
+    };
+  });
   box.querySelectorAll("[data-use]").forEach(cb => {
     cb.onchange = () => {
       state.mons[Number(cb.dataset.use)].use = cb.checked;
@@ -2626,7 +2683,8 @@ const MON_DEFAULT = {
   natureEnergy:0, recoveryBonus:0, inventoryUp:0,
   skillLevel:6, ribbon:0, helpBonus:false, berryS:false,
   shotIngs:null, shotCounts:null,
-  nature:"", subs:null
+  nature:"", subs:null,
+  fav:false
 };
 function fillMons(arr){
   return arr.filter(m => m && typeof m === "object")
@@ -4158,6 +4216,8 @@ renderNc();
 $("monSearch").addEventListener("input", () => { listUi.search = $("monSearch").value; renderMons(); });
 $("monSort").addEventListener("change", () => { listUi.sort = $("monSort").value; renderMons(); });
 $("onlyUse").addEventListener("change", () => { listUi.onlyUse = $("onlyUse").checked; renderMons(); });
+$("onlyFav").addEventListener("change", () => { listUi.onlyFav = $("onlyFav").checked; renderMons(); });
+$("monType").addEventListener("change", () => { listUi.type = $("monType").value; renderMons(); });
 $("clearBtn").onclick = () => {
   state.mons = []; $("importMsg").innerHTML = ""; renderMons(); render();
 };
