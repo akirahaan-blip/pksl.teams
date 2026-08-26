@@ -1934,6 +1934,40 @@ function natureNameFrom(m){
   return "";
 }
 
+/* ヘッダー（名前とレベルのあたり）を、白黒をはっきり分けてもう一度読む。
+   「Lv. 56」はゲームの画面では緑色の文字で、読み取り部品の標準の処理
+   （明暗を伸ばすだけ）だと薄いグレーになってしまい、文字として拾えない。
+   実際のスクショで確かめたところ、輝度200をさかいに白黒へ振り分けると
+   「Lv. 56」も名前と同じくらいくっきり出る。 */
+async function readHeaderSharp(canvas, layout){
+  const b = layout && layout.headerBox;
+  if (!b) return "";
+  const w = b.x1 - b.x0, h = b.y1 - b.y0;
+  const sc = 2;
+  const c = document.createElement("canvas");
+  c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(canvas, b.x0, b.y0, w, h, 0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height);
+  for (let i = 0; i < d.data.length; i += 4){
+    const v = d.data[i]*0.3 + d.data[i+1]*0.59 + d.data[i+2]*0.11;
+    d.data[i] = d.data[i+1] = d.data[i+2] = (v < 200 ? 0 : 255);
+  }
+  g.putImageData(d, 0, 0);
+
+  /* 名前も一緒に読む必要があるので、日本語が読める方の部品を借りる */
+  const worker = await window.PSVision.initOCR();
+  const chars = [...new Set(POKEMON.map(p => p.n).join("") + "Lv0123456789.")].join("");
+  await worker.setParameters({
+    tessedit_char_whitelist: chars,
+    tessedit_pageseg_mode: "6",
+    preserve_interword_spaces: "0"
+  });
+  const { data } = await worker.recognize(c);
+  return String(data.text || "");
+}
+
 /* ====== スクショからポケモンのレベルを読み取る ======
    ステータス画面には「Lv.」が5つも写っている。
      ・本人のレベル（例「Lv. 56 バリヤード」）      ← ほしいのはこれ
@@ -2054,7 +2088,8 @@ async function readShot(file){
     cv2.width = img.naturalWidth; cv2.height = img.naturalHeight;
     cv2.getContext("2d", { willReadFrequently: true }).drawImage(img, 0, 0);
     let counts = [null, null, null];
-    try { counts = await readIngredientCounts(cv2, window.PSVision.detectLayout(cv2), tess); }
+    const layout2 = window.PSVision.detectLayout(cv2);
+    try { counts = await readIngredientCounts(cv2, layout2, tess); }
     catch(e){ /* 読めなくても先に進む */ }
 
     const ingNames = read.ingredients.map(x => x && x.name).filter(Boolean);
@@ -2078,8 +2113,18 @@ async function readShot(file){
 
     /* レベル。読めなければ 50 のまま（これまでどおり手で入れてもらう） */
     const raw = read.raw || {};
-    const lvRead = levelFromHeader(raw.header, readName)
-                || levelFromHeader(raw.headerTop, readName);
+    let lvRead = levelFromHeader(raw.header, readName)
+              || levelFromHeader(raw.headerTop, readName);
+    /* 「Lv. 56」は緑色なので、ふつうの読み方では薄すぎて拾えないことがある。
+       そのときだけ、白黒をはっきりさせて読み直す（毎回やると遅くなるため） */
+    let sharpText = "";
+    if (!lvRead && readName){
+      try {
+        shotMsg("レベルを読んでいます…");
+        sharpText = await readHeaderSharp(cv2, layout2);
+        lvRead = levelFromHeader(sharpText, readName);
+      } catch(e){ /* 読めなくても先に進む */ }
+    }
 
     const mon = {
       use: true, name, level: lvRead || 50, combo,
@@ -2146,7 +2191,7 @@ async function readShot(file){
         <b>レベルと寝顔リボンを、下の一覧で開いている行に入れてください。</b><br>`;
       /* なぜ読めなかったのか分かるように、画面の上のほうで読めた文字をそのまま出す。
          ここを見れば、直すべき場所が分かる */
-      const rawTxt = [raw.header, raw.headerTop].filter(Boolean)
+      const rawTxt = [raw.header, raw.headerTop, sharpText].filter(Boolean)
         .map(t => String(t).replace(/\s+/g, " ").trim()).join("  ／  ");
       m += `<details style="margin-top:6px">
         <summary style="cursor:pointer; font-size:12px">読めた文字を見る（レベルが読めないときの手がかり）</summary>
