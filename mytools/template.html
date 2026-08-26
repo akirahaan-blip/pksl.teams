@@ -373,8 +373,9 @@ footer a{color:var(--faint)}
       <button class="add" id="stockClear" style="margin:0; flex:1 1 140px">全部0にもどす</button>
     </div>
     <p class="hint" style="margin-top:6px">
-      <b>だいたいで埋める</b>を押すと、ふつうの食材を <b>600個</b>、
-      手に入りにくい <b>ふといながねぎ・おいしいシッポ・ずっしりカボチャ</b> を <b>20個</b> で入れます。
+      <b>だいたいで埋める</b>を押すと、<b>ぜんぶで600個くらい</b>になるように入れます。
+      手に入りにくい <b>ふといながねぎ・おいしいシッポ・ずっしりカボチャ</b> は <b>20個</b>、
+      のこりの食材は <b>34個ずつ</b>です。
       <b>0から始める人はほとんどいない</b>ので、まずこれで見てみて、
       分かるものだけ実際の数に直すのがおすすめです。</p>
   </details>
@@ -3161,11 +3162,15 @@ $("stockClear").onclick = () => {
   render();
 };
 /* ぜんぶ手で入れるのは大変なので、ざっくり埋めるボタン。
-   手に入りにくい3種だけ少なめにする */
+   合計およそ600個になるようにする。手に入りにくい3種は20個ずつ、
+   のこり（600 - 20×3 = 540個）を16種類で分けて34個ずつ */
 const RARE_ING = ["ふといながねぎ", "おいしいシッポ", "ずっしりカボチャ"];
+const ROUGH_TOTAL = 600, ROUGH_RARE = 20;
 $("stockRough").onclick = () => {
+  const rest = ING_LIST.length - RARE_ING.length;
+  const each = Math.round((ROUGH_TOTAL - ROUGH_RARE * RARE_ING.length) / rest);
   document.querySelectorAll("[data-stock]").forEach(el => {
-    el.value = RARE_ING.indexOf(el.dataset.stock) >= 0 ? "20" : "600";
+    el.value = String(RARE_ING.indexOf(el.dataset.stock) >= 0 ? ROUGH_RARE : each);
   });
   render();
 };
