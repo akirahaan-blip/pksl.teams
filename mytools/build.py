@@ -749,6 +749,44 @@ def main():
     print("大きさ: %.0f KB" % (os.path.getsize(out_path) / 1024))
     print("スクショ読み取り: %d ファイルを組み込みました" % len(VISION_ORDER))
 
+    build_icons()
+
+
+# ---------------------------------------------------------------
+# アイコン。teams.png（1枚）から、必要な大きさをまとめて作る。
+#   ・favicon-32.png       ブラウザのタブ
+#   ・icon-192 / icon-512  Android や「ホーム画面に追加」
+#   ・apple-touch-icon     iPhone の「ホーム画面に追加」
+# teams.png を差し替えたら、build.py を動かせば全部作り直される。
+# Pillow が入っていない環境でも止まらないようにしてある
+# （その場合はいまある画像がそのまま使われる）。
+# ---------------------------------------------------------------
+ICON_SIZES = [(512, "icon-512.png"), (192, "icon-192.png"),
+              (180, "apple-touch-icon.png"), (32, "favicon-32.png")]
+
+
+def build_icons():
+    src_path = os.path.join(ROOT, "teams.png")
+    if not os.path.exists(src_path):
+        print("アイコン: teams.png が無いので、そのままにしました")
+        return
+    try:
+        from PIL import Image
+    except ImportError:
+        print("アイコン: Pillow が無いので作り直しませんでした（いまある画像を使います）")
+        return
+
+    src = Image.open(src_path).convert("RGB")
+    if src.size[0] != src.size[1]:
+        print("アイコン: teams.png が正方形ではありません（%dx%d）。"
+              "正方形にするときれいに出ます" % src.size)
+    made = []
+    for size, name in ICON_SIZES:
+        src.resize((size, size), Image.LANCZOS).save(
+            os.path.join(ROOT, name), optimize=True)
+        made.append(name)
+    print("アイコン: %s を teams.png から作りました" % "、".join(made))
+
 
 if __name__ == "__main__":
     main()

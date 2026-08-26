@@ -1,0 +1,17 @@
+{
+  "name": "ポケスリ最適チーム診断ツール",
+  "short_name": "チーム診断",
+  "description": "今週のカテゴリと手持ちから、いちばんエナジーを稼げる料理とチーム5匹を自動でさがします。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1C0E15",
+  "theme_color": "#1C0E15",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
