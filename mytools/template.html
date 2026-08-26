@@ -2810,6 +2810,32 @@ function localSearch(alloc, cands, D){
         else { cur[i]++; cur[j]--; }
       }
     }
+
+    /* 1日ずつ移すだけでは抜け出せない谷がある。
+       ある子は「1日減らすと献立がくずれて悪くなるが、まるごと外すと
+       別の献立に切りかわって良くなる」ことがあるため。
+       そこで、入っている子を1匹ずつ完全に外して、その日数を他の子へ配り直してみる。 */
+    for (let i = 0; i < n; i++){
+      if (cur[i] <= 0) continue;
+      const trial = cur.slice();
+      const days = trial[i];
+      trial[i] = 0;
+      let put = 0;
+      /* 空いた日数は、いま入っている他の子へ1日ずつ順に配る */
+      for (let round = 0; round < D && put < days; round++){
+        for (let j = 0; j < n && put < days; j++){
+          if (j === i || trial[j] <= 0 || trial[j] >= D) continue;
+          trial[j]++; put++;
+        }
+      }
+      if (put < days) continue;          /* 配りきれないときはあきらめる */
+      const s = evalAlloc(trial, cands, D);
+      if (s.rank > score.rank + 1e-9){
+        for (let k = 0; k < n; k++) cur[k] = trial[k];
+        score = s; improved = true;
+      }
+    }
+
     if (!improved) break;
   }
   return { alloc: cur, score };
@@ -2819,7 +2845,9 @@ function optimizeTeam(){
   const D = Number($("days").value) || 7;
   let cands = buildCandidates();
   if (cands.length === 0) return null;
-  cands = pruneCandidates(cands, 22);
+  /* 候補をしぼりすぎると、良い組み合わせを作る子が候補にすら入らない。
+     手持ちが多い人ほど取りこぼすので、多めに残す（重くなりすぎない範囲で） */
+  cands = pruneCandidates(cands, 34);
   const n = cands.length;
   const size = Math.min(TEAM_SIZE, n);
 
