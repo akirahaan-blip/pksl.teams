@@ -306,7 +306,7 @@ footer a{color:var(--faint)}
   <div id="recipeLvView" style="margin-top:8px"></div>
 
   <details class="adv" id="recipeLvBox" style="margin-top:12px">
-    <summary>料理ごとのレシピレベルを入れる（強くおすすめ）</summary>
+    <summary class="pick">⭐ 料理ごとのレシピレベルを入れる<small>（強くおすすめ）</small></summary>
     <p class="hint" style="margin-top:8px">
       <b>よく作る料理だけレベルが高い</b>のがふつうなので、1つの平均で計算すると
       作ったことのない料理を高く見積もってしまいます。分かるぶんだけ入れてください。<br>
@@ -326,7 +326,7 @@ footer a{color:var(--faint)}
   </details>
 
   <details class="adv" id="stockBox" style="margin-top:12px">
-    <summary>いま持っている食材を入れる（入れると精度が上がります）</summary>
+    <summary class="pick">🧺 いま持っている食材を入れる<small>（入れると精度が上がります）</small></summary>
     <p class="hint" style="margin-top:8px">
       ゲームの「食材」の画面に出ている数を入れてください。
       <b>入れないと「今週ゼロから集める」前提</b>になり、実際よりかなり低い結果になります。
@@ -489,6 +489,41 @@ footer a{color:var(--faint)}
        <b>ヒーラー（げんきオールSなど）を入れると全員が速くなります。</b></p>
   </details>
 </section>
+
+<details class="adv" id="boxFileBox" style="margin-top:18px">
+  <summary>💾 ボックスをファイルに保存する<small>（べつの端末へ移す・消えたときに備える）</small></summary>
+  <p class="hint" style="margin:8px 0 0">
+    ボックスの中身は<b>いま使っているブラウザの中だけ</b>に残ります。
+    ブラウザの履歴（キャッシュ）を消したり、パソコンを買いかえたり、スマホで開いたりすると、
+    そこには入っていません。<br>
+    <b>書き出す</b>を押すとファイル1つ（.json）になります。そのファイルを移した先で
+    <b>読み込む</b>を押せば、<b>ポケモン</b>と<b>料理ごとのレシピレベル</b>がそのまま移せます。
+  </p>
+  <div class="row" style="margin-top:8px">
+    <button class="add" id="boxSaveBtn" style="margin:0; flex:1 1 200px">⬇ ファイルに書き出す</button>
+    <button class="add" id="boxLoadBtn" style="margin:0; flex:1 1 200px">⬆ ファイルから読み込む</button>
+  </div>
+  <input type="file" id="boxFile" accept=".json,application/json" style="display:none">
+  <div id="boxFileMsg" style="margin-top:8px"></div>
+
+  <details class="adv" id="boxTextBox" style="margin-top:10px">
+    <summary>ファイルではなく<b>文字</b>でやりとりする<small>（スマホへ移すとき・書き出せないとき）</small></summary>
+    <p class="hint" style="margin:8px 0 0">
+      <b>文字にする</b>を押すと、ボックスの中身が下の枠に文字で出ます。
+      それを全部コピーして、自分あてのメールや LINE、メモ帳に貼っておいてください。<br>
+      移した先では、その文字を下の枠に貼り付けて <b>貼り付けた文字から読み込む</b> を押します。
+    </p>
+    <textarea id="boxText" rows="4" placeholder="「文字にする」を押すと、ここに出ます"
+      style="width:100%; font:inherit; font-size:12px; color:var(--text);
+             background:var(--surface2); border:1px solid var(--line);
+             border-radius:8px; padding:8px; resize:vertical; margin-top:8px;font-weight:700"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="add" id="boxToTextBtn" style="margin:0; flex:1 1 160px">文字にする</button>
+      <button class="add" id="boxCopyBtn" style="margin:0; flex:0 1 140px">コピー</button>
+      <button class="add" id="boxFromTextBtn" style="margin:0; flex:1 1 200px">貼り付けた文字から読み込む</button>
+    </div>
+  </details>
+</details>
 
 <footer>
   ポケモンのデータは <a href="https://github.com/nitoyon/pokesleep-tool" target="_blank" rel="noopener">nitoyon/pokesleep-tool</a>（MIT）より。
@@ -2423,19 +2458,25 @@ function saveBox(){
   }, 400);
 }
 
+/* 1匹ぶんの既定値。古い版で保存したものや、ファイルから読んだものに足りない項目を補う */
+const MON_DEFAULT = {
+  use:false, name:"", level:50, combo:"AAA", nickname:"",
+  natureSpeed:0, subSpeed:0, natureIng:0, subIng:0, natureSkill:0, subSkill:0,
+  natureEnergy:0, recoveryBonus:0, inventoryUp:0,
+  skillLevel:6, ribbon:0, helpBonus:false, berryS:false,
+  shotIngs:null, shotCounts:null, shotSubs:null
+};
+function fillMons(arr){
+  return arr.filter(m => m && typeof m === "object")
+            .map(m => Object.assign({}, MON_DEFAULT, m));
+}
+
 function loadBox(){
   try {
     const raw = localStorage.getItem(BOX_KEY);
     const arr = raw ? JSON.parse(raw) : null;
     if (Array.isArray(arr) && arr.length){
-      /* 古い版で保存したものにも、足りない項目を補っておく */
-      state.mons = arr.map(m => Object.assign({
-        use:false, name:"", level:50, combo:"AAA", nickname:"",
-        natureSpeed:0, subSpeed:0, natureIng:0, subIng:0, natureSkill:0, subSkill:0,
-        natureEnergy:0, recoveryBonus:0, inventoryUp:0,
-        skillLevel:6, ribbon:0, helpBonus:false, berryS:false,
-        shotIngs:null, shotCounts:null, shotSubs:null
-      }, m));
+      state.mons = fillMons(arr);
       return true;
     }
   } catch(e){}
@@ -2452,6 +2493,141 @@ function renderBoxInfo(){
   }
   el.innerHTML = `<span class="berry">🎒 ボックスに <b>${n}匹</b> 保存中
     <span style="color:var(--faint); font-size:11.5px">（このパソコンに残ります）</span></span>`;
+}
+
+/* ====== ボックスをファイルに書き出す／ファイルから読み込む ======
+   localStorage はいま使っているブラウザの中にしか残らない。
+   端末を移したいときや、消えると困るときのために、ファイル1つにまとめる。
+   入れるのは「手で入れたもの」＝ポケモンと、料理ごとのレシピレベルの2つだけ。
+   フィールドや今週のカテゴリは毎週変わるので入れない。 */
+const BOX_FILE_TYPE = "pksl.teams-box";
+
+function boxFileMsg(html, kind){
+  const el = $("boxFileMsg");
+  if (!el) return;
+  if (!html){ el.innerHTML = ""; return; }
+  const color = kind === "ok" ? "var(--good)" : kind === "ng" ? "var(--bad)" : "var(--warn)";
+  el.innerHTML = `<div class="note" style="border-left-color:${color}">${html}</div>`;
+}
+
+/* ボックスの中身を、保存するときの形（文字）にする。ファイルにも、コピー用の枠にも同じものを使う */
+function boxToText(){
+  return JSON.stringify({
+    type: BOX_FILE_TYPE,
+    version: 1,
+    savedAt: new Date().toISOString(),
+    mons: state.mons,
+    recipeLv: recipeLvMap
+  }, null, 2);
+}
+
+function exportBoxFile(){
+  if (!state.mons.length){
+    boxFileMsg("ボックスが空です。先にポケモンを読み込んでください。", "ng");
+    return;
+  }
+  const two = n => String(n).padStart(2, "0");
+  const d = new Date();
+  const fname = `pksl-teams-box-${d.getFullYear()}${two(d.getMonth()+1)}${two(d.getDate())}.json`;
+  try {
+    const blob = new Blob([boxToText()], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const lvN = Object.keys(recipeLvMap).length;
+    boxFileMsg(`<b>${esc(fname)}</b> を書き出しました。<br>
+      中身：ポケモン <b>${state.mons.length}匹</b>／レシピレベル <b>${lvN}品</b><br>
+      いつも使っている<b>ダウンロードフォルダ</b>に入っています。<br>
+      見あたらないときは、下の「<b>ファイルではなく文字でやりとりする</b>」を使ってください。`, "ok");
+  } catch(e){
+    boxFileMsg(`書き出せませんでした（${esc(String((e && e.message) || e))}）。`, "ng");
+  }
+}
+
+/* 読み取った中身をボックスに入れる。
+   ファイルからでも、貼り付けた文字からでも、必ずここを通る */
+function applyBoxData(data, kind){
+  const what = (kind === "text") ? "貼り付けた文字" : "このファイル";
+  if (!data || typeof data !== "object" || !Array.isArray(data.mons)){
+    boxFileMsg(`${what}には、ポケモンのデータが入っていないようです。`, "ng");
+    return false;
+  }
+  const mons = fillMons(data.mons);
+  if (!mons.length){
+    boxFileMsg(`${what}には、ポケモンが1匹も入っていませんでした。`, "ng");
+    return false;
+  }
+  /* いまの中身が消えるので、必ず一度たずねる */
+  if (state.mons.length){
+    const ok = confirm(
+      `いまボックスに入っている ${state.mons.length}匹 を、` +
+      `読み込んだ中身（${mons.length}匹）で置きかえます。よろしいですか？`);
+    if (!ok){
+      boxFileMsg("読み込みをやめました。いまのボックスはそのままです。", "");
+      return false;
+    }
+  }
+  state.mons = mons;
+
+  /* レシピレベルも入っていれば入れかえる。1〜70 の値だけ受け取る */
+  let lvN = 0;
+  if (data.recipeLv && typeof data.recipeLv === "object"){
+    const next = {};
+    for (const k in data.recipeLv){
+      const v = Math.floor(Number(data.recipeLv[k]));
+      if (v >= 1 && v <= 70){ next[k] = v; lvN++; }
+    }
+    if (lvN){
+      recipeLvMap = next;
+      saveRecipeLv();
+      renderRecipeLvGrid();
+      renderRecipeLv();
+    }
+  }
+  renderMons();
+  render();
+  boxFileMsg(`ポケモン <b>${mons.length}匹</b>` +
+    (lvN ? `／レシピレベル <b>${lvN}品</b>` : "") +
+    ` を読み込みました。下の「いちばんエナジーを稼げる編成」も計算し直しています。`, "ok");
+  return true;
+}
+
+function importBoxText(text){
+  const s = String(text || "").trim();
+  if (!s){
+    boxFileMsg("枠が空です。コピーしておいた文字を貼り付けてから押してください。", "ng");
+    return;
+  }
+  let data = null;
+  try { data = JSON.parse(s); }
+  catch(e){
+    boxFileMsg(`貼り付けた文字が読み取れませんでした。<br>
+      <b>{</b> で始まって <b>}</b> で終わるところまで、まるごとコピーできているか見てください。`, "ng");
+    return;
+  }
+  applyBoxData(data, "text");
+}
+
+function importBoxFile(file){
+  if (!file){ return; }
+  const reader = new FileReader();
+  reader.onerror = () => boxFileMsg("ファイルを読めませんでした。もう一度えらんでください。", "ng");
+  reader.onload = () => {
+    let data = null;
+    try { data = JSON.parse(String(reader.result)); }
+    catch(e){
+      boxFileMsg(`このファイルは読み取れませんでした。<br>
+        「ファイルに書き出す」で作った <b>.json</b> ファイルをえらんでください。`, "ng");
+      return;
+    }
+    applyBoxData(data, "file");
+  };
+  reader.readAsText(file);
 }
 
 /* 料理ごとのレシピレベル。パソコンに覚えさせておく */
@@ -3811,6 +3987,44 @@ $("onlyUse").addEventListener("change", () => { listUi.onlyUse = $("onlyUse").ch
 $("clearBtn").onclick = () => {
   state.mons = []; $("importMsg").innerHTML = ""; renderMons(); render();
 };
+
+/* ボックスの書き出し／読み込み */
+$("boxSaveBtn").onclick = () => exportBoxFile();
+$("boxLoadBtn").onclick = () => $("boxFile").click();
+$("boxFile").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0];
+  importBoxFile(f);
+  e.target.value = "";   /* 同じファイルをもう一度えらべるように空にしておく */
+});
+
+/* ファイルではなく文字でやりとりする（スマホへ移すとき・書き出せないとき） */
+$("boxToTextBtn").onclick = () => {
+  if (!state.mons.length){
+    boxFileMsg("ボックスが空です。先にポケモンを読み込んでください。", "ng");
+    return;
+  }
+  $("boxText").value = boxToText();
+  boxFileMsg(`下の枠に文字で出しました。<b>枠の中を全部えらんでコピー</b>してください
+    （「コピー」を押すだけでもかまいません）。`, "ok");
+};
+$("boxCopyBtn").onclick = async () => {
+  const ta = $("boxText");
+  if (!ta.value){ boxFileMsg("先に「文字にする」を押してください。", "ng"); return; }
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    boxFileMsg("コピーしました。メールやメモ帳に貼り付けて残しておいてください。", "ok");
+  } catch(e){
+    /* 環境によっては上の方法が使えないので、昔ながらのやり方でもう一度ためす */
+    try {
+      ta.focus(); ta.select();
+      document.execCommand("copy");
+      boxFileMsg("コピーしました。メールやメモ帳に貼り付けて残しておいてください。", "ok");
+    } catch(e2){
+      boxFileMsg("コピーできませんでした。枠の中を指でなぞって（Ctrl+A で）自分でコピーしてください。", "ng");
+    }
+  }
+};
+$("boxFromTextBtn").onclick = () => importBoxText($("boxText").value);
 ["sleepScore","days","potAdd"].forEach(id => $(id).addEventListener("input", () => { renderPotView(); render(); }));
 ["pot","ticket"].forEach(id => $(id).addEventListener("change", () => { renderPotView(); render(); }));
 
