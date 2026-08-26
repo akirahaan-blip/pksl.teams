@@ -2881,6 +2881,59 @@ function optimizeTeam(){
   }
   if (!best) return null;
 
+  /* ここからもう一段さがす。
+     ある子が枠を取っているせいで、もっと良い組み合わせにたどり着けないことがある。
+     （実例: ボーマンダを候補から消すと合計が11%上がる、ということが起きていた）
+     そこで「出番の少ない子を候補ごと外して、もう一度さいしょから探す」を2回まで試す。 */
+  for (let round = 0; round < 2; round++){
+    const 少ない順 = best.alloc.map((d, i) => [i, d])
+                              .filter(x => x[1] > 0)
+                              .sort((a, b) => a[1] - b[1]);
+    if (!少ない順.length) break;
+    /* 外す相手は1匹に決め打ちせず、出番の少ない方から何匹か試す。
+       いちばん少ない子が原因とはかぎらないため */
+    let 改善 = false;
+    /* 試す数を増やすほど良い答えに近づくが、そのぶん待たされる。
+       手持ち90匹で 2匹＝約6秒／4匹＝約10秒。ここは待ち時間とのつりあいで決めている */
+    for (const [idx] of 少ない順.slice(0, 2)){
+    const sub = cands.filter((_, i) => i !== idx);
+    if (sub.length < size) continue;
+
+    /* 外したあとの候補で、同じ3つの出発点から探し直す */
+    const sBerry = sub.map((c,i) => [i, candStat(c,0,0).berry]).sort((a,b) => b[1]-a[1]);
+    const sIng   = sub.map((c,i) => [i, Object.values(candStat(c,0,0).ing).reduce((x,y)=>x+y,0)])
+                      .sort((a,b) => b[1]-a[1]);
+    const sFill = (order) => {
+      const a = new Array(sub.length).fill(0);
+      for (let k = 0; k < size; k++) a[order[k][0]] = D;
+      return a;
+    };
+    const sStarts = [sFill(sBerry), sFill(sIng)];
+    const sMix = new Array(sub.length).fill(0);
+    let sPut = 0;
+    for (let k = 0; k < sub.length && sPut < Math.ceil(size/2); k++){ sMix[sBerry[k][0]] = D; sPut++; }
+    for (let k = 0; k < sub.length && sPut < size; k++){
+      const i = sIng[k][0];
+      if (sMix[i] === 0){ sMix[i] = D; sPut++; }
+    }
+    sStarts.push(sMix);
+
+    let sBest = null;
+    for (const a of sStarts){
+      if (a.reduce((x,y) => x+y, 0) !== size * D) continue;
+      const r = localSearch(a, sub, D);
+      if (!sBest || r.score.rank > sBest.score.rank) sBest = r;
+    }
+      if (sBest && sBest.score.rank > best.score.rank){
+        best = sBest;
+        cands = sub;        /* 番号の対応を保つため、候補ごと入れかえる */
+        改善 = true;
+        break;              /* 良くなったので、この状態からもう一度さがし直す */
+      }
+    }
+    if (!改善) break;       /* どれを外しても良くならないなら、ここで終わり */
+  }
+
   /* 念のための検算。ここが合わないと日割りが壊れる */
   const sum = best.alloc.reduce((a,b) => a+b, 0);
   const bad = best.alloc.some(v => v < 0 || v > D || !Number.isInteger(v));
