@@ -2,11 +2,11 @@
 <html lang="ja">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ポケスリ 今週の料理ナビ｜今週いちばん稼げる料理とチームをさがす</title>
+<title>ポケスリ最適チーム診断ツール｜今週いちばん稼げる料理と5匹を自動でさがす</title>
 <meta name="description" content="ポケモンスリープで、今週のカビゴンのリクエストと手持ちのポケモンから、いちばんエナジーを稼げる料理とチーム5匹を自動でさがします。個体値計算機のCSVやスクリーンショットから読み込めます。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍲</text></svg>">
 <meta property="og:type" content="website">
-<meta property="og:title" content="ポケスリ 今週の料理ナビ">
+<meta property="og:title" content="ポケスリ最適チーム診断ツール">
 <meta property="og:description" content="今週のカテゴリと手持ちから、いちばんエナジーを稼げる料理とチーム5匹を自動でさがします。">
 <meta property="og:url" content="https://akirahaan-blip.github.io/pksl.teams/">
 <meta name="twitter:card" content="summary">
@@ -110,6 +110,7 @@ select:focus,input:focus{outline:2px solid var(--accent); outline-offset:1px}
 .mon .nm{font-size:14px; min-width:0; overflow:hidden; white-space:nowrap;
   text-overflow:ellipsis; flex:1 1 auto}
 .mon .nm .sub{color:var(--faint); font-size:11.5px; margin-left:6px;font-weight:700}
+.mon .sub2{color:var(--faint); font-size:11px; margin-left:6px;font-weight:700}
 .mon .meta{color:var(--faint); font-size:12px; flex:0 0 auto; white-space:nowrap;font-weight:700}
 .mon .exp{
   background:none; border:1px solid var(--line); color:var(--dim);
@@ -230,7 +231,7 @@ footer a{color:var(--faint)}
 <div class="wrap">
 
 <header>
-  <h1><span class="em">🍳</span>ポケスリ 今週の料理ナビ</h1>
+  <h1><span class="em">🍳</span>ポケスリ最適チーム診断ツール</h1>
   <p class="lead">今週のカビゴンがリクエストしたカテゴリの中で、手持ちのメンバーが集める食材で
      いちばんエナジーを稼げる料理をさがします。</p>
 </header>
@@ -699,7 +700,9 @@ function addMon(){
     helpBonus:false, /* おてつだいボーナスを持っているか */
     berryS:false,    /* きのみの数S を持っているか */
     nickname:"",
-    shotIngs:null
+    shotIngs:null,
+    nature:"",              /* せいかくの名前。ここから上の nature* を決める */
+    subs:["","","","",""]   /* サブスキル5枠（Lv10/25/50/70/80）の名前 */
   });
   listUi.open = state.mons.length - 1;
   listUi.onlyUse = false;
@@ -785,13 +788,21 @@ function comboFromCounts(p, counts){
   return hits.length === 1 ? hits[0] : null;
 }
 
-/* スクショから読んだサブスキルを、レベルの解放を見ながら反映する。
-   Lv.70/80 のサブスキルは、そのレベルに届いていなければ効かない */
-function applyShotSubs(m){
-  if (!m.shotSubs) return;
+/* ====== せいかくの名前・サブスキル5枠 → 計算で使う数値 ======
+   ゲームの画面に出ている名前をそのまま持っておき、ここで数値に直す。
+   手入力・CSV・スクショの3つとも、必ずこの関数を通す（バラバラに計算しないこと）。
+   Lv.70/80 のサブスキルは、そのレベルに届いていなければ効かない。 */
+function applyNatureSubs(m){
+  if (m.nature && NATURES[m.nature]){
+    const n = NATURES[m.nature];
+    m.natureSpeed = n.speed; m.natureIng = n.ing;
+    m.natureSkill = n.skill; m.natureEnergy = n.energy;
+  }
+  /* subs が配列でないのは「前の作りで保存したもの」。そこは触らずに残す */
+  if (!Array.isArray(m.subs)) return;
   let subSpeed = 0, subIng = 0, subSkill = 0, inventoryUp = 0, recoveryBonus = 0;
   let helpBonus = false, berryS = false;
-  m.shotSubs.forEach((name, k) => {
+  m.subs.forEach((name, k) => {
     if (!name) return;
     if (m.level < SUBSKILL_LEVELS[k]) return;
     const v = SUBSKILLS[name];
@@ -807,6 +818,52 @@ function applyShotSubs(m){
   m.subSpeed = subSpeed; m.subIng = subIng; m.subSkill = subSkill;
   m.inventoryUp = inventoryUp; m.recoveryBonus = recoveryBonus;
   m.helpBonus = helpBonus; m.berryS = berryS;
+}
+
+/* ---- 手入力の欄に出す、せいかく25種類とサブスキル12種類のえらび肢 ---- */
+const NATURE_WORDS = {
+  speed:  ["おてつだいが速い", "おてつだいが遅い"],
+  ing:    ["食材が出やすい",   "食材が出にくい"],
+  skill:  ["スキルが出やすい", "スキルが出にくい"],
+  energy: ["げんきが回復しやすい", "げんきが回復しにくい"]
+};
+function natureOptions(cur){
+  let html = `<option value=""${cur ? "" : " selected"}>（えらんでください）</option>`;
+  for (const name in NATURES){
+    const n = NATURES[name];
+    let up = "", down = "";
+    for (const key in NATURE_WORDS){
+      if (n[key] === 1)  up   = "↑" + NATURE_WORDS[key][0];
+      if (n[key] === -1) down = "↓" + NATURE_WORDS[key][1];
+    }
+    const note = (up || down) ? `（${[up, down].filter(Boolean).join(" ")}）` : "（じょうずへたなし）";
+    html += `<option value="${esc(name)}"${name === cur ? " selected" : ""}>${esc(name)}${note}</option>`;
+  }
+  return html;
+}
+function subOptions(cur){
+  let html = `<option value=""${cur ? "" : " selected"}>（なし）</option>`;
+  for (const name in SUBSKILLS){
+    html += `<option value="${esc(name)}"${name === cur ? " selected" : ""}>${esc(name)}</option>`;
+  }
+  return html;
+}
+/* 前の作りで入れたサブスキルが残っているか（5枠に入れ直してもらう合図） */
+function hasOldSubs(m){
+  return !Array.isArray(m.subs) &&
+    !!(m.subSpeed || m.subIng || m.subSkill || m.inventoryUp
+       || m.recoveryBonus || m.helpBonus || m.berryS);
+}
+
+/* 前の作りで保存したもの（数値しか持っていない）から、せいかくの名前を逆に引く。
+   すべて0のせいかくは5種類あるが、効き目は同じなので最初に見つかったものでよい */
+function natureNameFrom(m){
+  for (const k in NATURES){
+    const n = NATURES[k];
+    if (n.speed === (m.natureSpeed|0) && n.ing === (m.natureIng|0)
+     && n.skill === (m.natureSkill|0) && n.energy === (m.natureEnergy|0)) return k;
+  }
+  return "";
 }
 
 /* 読み取った食材3つから、AAA などの食材構成を組み立てる */
@@ -922,12 +979,11 @@ async function readShot(file){
     if (!comboOk) combo = "AAA";
     const name = nameOk ? readName : "";
 
-    const nat = (read.nature && NATURES[read.nature.name])
-      || { speed:0, ing:0, skill:0, energy:0 };
+    const natName = (read.nature && NATURES[read.nature.name]) ? read.nature.name : "";
 
     /* サブスキルは枠の順（Lv10/25/50/70/80）に覚えておく。
        レベルが届いていない枠は効かせない。レベルを直したら計算し直す */
-    const shotSubs = (read.subSkills || []).map(sk => (sk && sk.name) || null);
+    const shotSubs = (read.subSkills || []).map(sk => (sk && sk.name) || "");
     const gotSubs = shotSubs.filter(Boolean);
 
     const mon = {
@@ -936,14 +992,15 @@ async function readShot(file){
       /* あとで種類やレベルを直したときに、組み立て直すために覚えておく */
       shotIngs: ingNames.length === 3 ? ingNames : null,
       shotCounts: counts,
-      shotSubs: shotSubs.some(Boolean) ? shotSubs : null,
-      natureSpeed: nat.speed, subSpeed: 0,
-      natureIng: nat.ing, subIng: 0,
-      natureSkill: nat.skill, subSkill: 0,
-      natureEnergy: nat.energy, recoveryBonus: 0, inventoryUp: 0,
+      nature: natName,
+      subs: [0,1,2,3,4].map(k => shotSubs[k] || ""),
+      natureSpeed: 0, subSpeed: 0,
+      natureIng: 0, subIng: 0,
+      natureSkill: 0, subSkill: 0,
+      natureEnergy: 0, recoveryBonus: 0, inventoryUp: 0,
       skillLevel: 6, ribbon: 0, helpBonus: false, berryS: false
     };
-    applyShotSubs(mon);
+    applyNatureSubs(mon);
     state.mons.push(mon);
 
     /* 追加した行を開いた状態にして、レベルとリボンを入れてもらう */
@@ -1071,24 +1128,10 @@ function importCsv(){
     const combo = comboFromIngredients(p, [c[4], c[5], c[6]], level);
     if (combo === null){ skipped.push(name + "（食材が合いません）"); continue; }
 
-    /* せいかく */
-    const nat = NATURES[c[8]] || { speed:0, ing:0, skill:0, energy:0 };
-
-    /* サブスキル。レベルが足りていないものは効かない */
-    let subSpeed = 0, subIng = 0, subSkill = 0, helpBonus = false, berryS = false;
-    let recoveryBonus = 0, inventoryUp = 0;
-    for (let k = 0; k < 5; k++){
-      if (level < SUBSKILL_LEVELS[k]) break;
-      const s = SUBSKILLS[c[9 + k]];
-      if (!s) continue;
-      if (s[0] === "speed") subSpeed += s[1];
-      else if (s[0] === "ing") subIng += s[1];
-      else if (s[0] === "skill") subSkill += s[1];
-      else if (s[0] === "helpbonus") helpBonus = true;
-      else if (s[0] === "berry") berryS = true;
-      else if (s[0] === "recovery") recoveryBonus += 1;
-      else if (s[0] === "inventory") inventoryUp += s[1];
-    }
+    /* せいかくとサブスキルは、名前のまま持っておく。
+       数値に直すのは applyNatureSubs にまかせる（3つの入り口で計算を分けないこと） */
+    const natName = NATURES[c[8]] ? c[8] : "";
+    const subs = [0,1,2,3,4].map(k => SUBSKILLS[c[9 + k]] ? c[9 + k] : "");
 
     /* 寝顔リボン。CSVには時間（0/200/500/1000/2000）で入っている */
     const hours = Number(c[14]) || 0;
@@ -1097,17 +1140,20 @@ function importCsv(){
       if (hours >= RIBBON_HOURS[k]) ribbon = k;
     }
 
-    added.push({
+    const mon = {
       use: added.length < 5,
       name, level, combo,
       nickname: c[0],
-      natureSpeed: nat.speed, subSpeed,
-      natureIng: nat.ing, subIng,
-      natureSkill: nat.skill, subSkill,
-      natureEnergy: nat.energy, recoveryBonus, inventoryUp,
+      nature: natName, subs,
+      natureSpeed: 0, subSpeed: 0,
+      natureIng: 0, subIng: 0,
+      natureSkill: 0, subSkill: 0,
+      natureEnergy: 0, recoveryBonus: 0, inventoryUp: 0,
       skillLevel: Math.max(1, Math.min(7, Number(c[3]) || 6)),
-      ribbon, helpBonus, berryS
-    });
+      ribbon, helpBonus: false, berryS: false
+    };
+    applyNatureSubs(mon);
+    added.push(mon);
   }
 
   if (added.length === 0){
@@ -1220,38 +1266,27 @@ function renderMons(){
         </div>
         <div class="made" data-made="${i}"></div>
         <div class="row">
-          <div><label>性格（おてつだいスピード）</label><select data-f="natureSpeed">${
-            pick(m.natureSpeed,[[0,"関係なし"],[1,"上がる（×0.9）"],[-1,"下がる（×1.075）"]])}</select></div>
-          <div><label>おてつだいスピードのサブスキル</label><select data-f="subSpeed">${
-            pick(m.subSpeed,[[0,"なし"],[1,"S を1つ"],[2,"M を1つ / S を2つ"],[3,"M＋S"],[4,"M を2つ"]])}</select></div>
-        </div>
-        <div class="row">
-          <div><label>性格（食材おてつだい確率）</label><select data-f="natureIng">${
-            pick(m.natureIng,[[0,"関係なし"],[1,"上がる（×1.2）"],[-1,"下がる（×0.8）"]])}</select></div>
-          <div><label>食材確率アップのサブスキル</label><select data-f="subIng">${
-            pick(m.subIng,[[0,"なし"],[1,"S を1つ"],[2,"M を1つ / S を2つ"],[3,"M＋S"],[4,"M を2つ"]])}</select></div>
-        </div>
-        <div class="row">
-          <div><label>性格（メインスキル発生確率）</label><select data-f="natureSkill">${
-            pick(m.natureSkill,[[0,"関係なし"],[1,"上がる（×1.2）"],[-1,"下がる（×0.8）"]])}</select></div>
-          <div><label>スキル確率アップのサブスキル</label><select data-f="subSkill">${
-            pick(m.subSkill,[[0,"なし"],[1,"S を1つ"],[2,"M を1つ / S を2つ"],[3,"M＋S"],[4,"M を2つ"]])}</select></div>
-        </div>
-        <div class="row">
-          <div><label>性格（げんき回復量）</label><select data-f="natureEnergy">${
-            pick(m.natureEnergy,[[0,"関係なし"],[1,"上がる（×1.2）"],[-1,"下がる（×0.88）"]])}</select></div>
-          <div><label>げんき回復ボーナス</label><select data-f="recoveryBonus">${
-            pick(m.recoveryBonus,[[0,"なし"],[1,"1つ"],[2,"2つ"]])}</select></div>
-          <div><label>最大所持数アップ</label><select data-f="inventoryUp">${
-            pick(m.inventoryUp,[[0,"なし"],[1,"S"],[2,"M"],[3,"L / S+M"],[4,"L+S"],[5,"L+M"],[6,"L+L"]])}</select></div>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <div><label>寝顔リボン</label><select data-f="ribbon">${
+          <div style="flex:2 1 240px"><label>せいかく</label>
+            <select data-f="nature">${natureOptions(m.nature)}</select></div>
+          <div style="flex:1 1 140px"><label>寝顔リボン</label><select data-f="ribbon">${
             pick(m.ribbon,[[0,"なし"],[1,"200時間"],[2,"500時間"],[3,"1000時間"],[4,"2000時間"]])}</select></div>
-          <div><label>おてつだいボーナス</label><select data-f="helpBonus">${
-            pick(m.helpBonus?1:0,[[0,"なし"],[1,"あり"]])}</select></div>
-          <div><label>きのみの数S</label><select data-f="berryS">${
-            pick(m.berryS?1:0,[[0,"なし"],[1,"あり"]])}</select></div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label style="display:block; margin-bottom:2px">サブスキル<span class="sub2">ゲームの画面に出ている名前を、そのまま選んでください</span></label>
+          <div class="row">${[0,1,2,3,4].map(k => {
+            const yet = m.level < SUBSKILL_LEVELS[k];
+            const cur = Array.isArray(m.subs) ? (m.subs[k] || "") : "";
+            return `<div style="flex:1 1 128px; max-width:220px${yet ? "; opacity:.55" : ""}">
+              <label>Lv.${SUBSKILL_LEVELS[k]}${yet ? "（まだ）" : ""}</label>
+              <select data-sub="${k}">${subOptions(cur)}</select>
+            </div>`;
+          }).join("")}</div>
+          ${m.level < SUBSKILL_LEVELS[4] ? `<p class="hint" style="margin:6px 0 0">
+            <b>（まだ）</b>と付いた枠は、このレベルではまだ開いていないので計算に入りません。
+            先に入れておけば、レベルを上げたときに自動で効きます。</p>` : ""}
+          ${hasOldSubs(m) ? `<p class="lack" style="margin:6px 0 0">
+            前の作りで入れたサブスキルが残っています。上の5枠に入れ直すと、そちらが使われます。</p>` : ""}
         </div>
       </div>`;
     }
@@ -1277,9 +1312,16 @@ function renderMons(){
       const ev = (inp.tagName === "SELECT") ? "change" : "input";
       inp.addEventListener(ev, () => {
         const before = isCookingUp(state.mons[i].name);
-        if (f === "name" || f === "combo") state.mons[i][f] = inp.value;
+        /* まず、入力された値をしまう（ここを後回しにすると値が戻ってしまう） */
+        if (f === "name" || f === "combo" || f === "nature") state.mons[i][f] = inp.value;
+        else if (f === "helpBonus" || f === "berryS") state.mons[i][f] = (inp.value === "1");
+        else state.mons[i][f] = Number(inp.value);
         const m2 = state.mons[i];
-        /* スクショから読んだものが残っていれば、種類やレベルに合わせて決め直す */
+
+        /* せいかくをえらんだら、計算で使う数値に直す */
+        if (f === "nature"){ applyNatureSubs(m2); renderMade(); render(); return; }
+
+        /* スクショから読んだものが残っていれば、種類に合わせて食材構成を決め直す */
         if (f === "name"){
           const q = POKE_BY_NAME[inp.value];
           if (q){
@@ -1288,18 +1330,30 @@ function renderMons(){
             if (c){ m2.combo = c; renderMons(); render(); return; }
           }
         }
-        if (f === "level" && m2.shotSubs){
-          /* レベルが変わると、使えるサブスキルの数が変わる */
-          applyShotSubs(m2);
-          renderMons(); render(); return;
-        }
-        else if (f === "helpBonus" || f === "berryS") state.mons[i][f] = (inp.value === "1");
-        else state.mons[i][f] = Number(inp.value);
+        /* レベルが変わると、使えるサブスキルの数が変わる。
+           ここで作り直すと打っている途中でカーソルが飛ぶので、計算だけしておく
+           （見た目は下の blur で整える） */
+        if (f === "level"){ applyNatureSubs(m2); renderMade(); render(); return; }
 
         if (f === "name" && isCookingUp(inp.value) !== before){ renderMons(); render(); return; }
         renderMade(); render();
       });
     });
+
+    /* サブスキル5枠。ゲームの画面に出ている名前をそのままえらぶ */
+    openEl.querySelectorAll("[data-sub]").forEach(sel => {
+      sel.addEventListener("change", () => {
+        const m2 = state.mons[i];
+        if (!Array.isArray(m2.subs)) m2.subs = ["", "", "", "", ""];
+        m2.subs[Number(sel.dataset.sub)] = sel.value;
+        applyNatureSubs(m2);
+        renderMons(); render();
+      });
+    });
+
+    /* レベルの欄からはなれたら、サブスキルの「まだ開いていません」を出し直す */
+    const lvInput = openEl.querySelector('[data-f="level"]');
+    if (lvInput) lvInput.addEventListener("blur", () => { renderMons(); render(); });
   }
 
   box.querySelectorAll("[data-use]").forEach(cb => {
@@ -1410,11 +1464,24 @@ const MON_DEFAULT = {
   natureSpeed:0, subSpeed:0, natureIng:0, subIng:0, natureSkill:0, subSkill:0,
   natureEnergy:0, recoveryBonus:0, inventoryUp:0,
   skillLevel:6, ribbon:0, helpBonus:false, berryS:false,
-  shotIngs:null, shotCounts:null, shotSubs:null
+  shotIngs:null, shotCounts:null,
+  nature:"", subs:null
 };
 function fillMons(arr){
   return arr.filter(m => m && typeof m === "object")
-            .map(m => Object.assign({}, MON_DEFAULT, m));
+            .map(m => {
+              const f = Object.assign({}, MON_DEFAULT, m);
+              /* 前の作りで保存したものを、新しい形（名前で持つ）に引き継ぐ */
+              if (!Array.isArray(f.subs) && Array.isArray(f.shotSubs)){
+                f.subs = [0,1,2,3,4].map(k => f.shotSubs[k] || "");
+              }
+              if (!f.nature) f.nature = natureNameFrom(f);
+              delete f.shotSubs;
+              /* 名前から、計算で使う数値を作り直す。
+                 これを忘れると、せいかくもサブスキルも効かないまま計算される */
+              applyNatureSubs(f);
+              return f;
+            });
 }
 
 function loadBox(){
