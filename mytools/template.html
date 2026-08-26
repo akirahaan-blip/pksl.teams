@@ -2301,8 +2301,15 @@ function gatherIngredients(){
 
   for (const m of team()){
     const q = POKE_BY_NAME[m.name];
-    if (!q || !INGREDIENT_MAGNET[q.sk]) continue;
-    const st = perDayStats(m, helpBonusCount);
+    if (!q) continue;
+    const st0 = perDayStats(m, helpBonusCount);
+    /* 食材セレクトS。決まったリストの中から手に入るので、そこへ配る */
+    if (st0 && st0.drawPerDay > 0 && st0.drawList){
+      const e = st0.drawPerDay * days / st0.drawList.length;
+      for (const k of st0.drawList) have[k] = (have[k] || 0) + e;
+    }
+    if (!INGREDIENT_MAGNET[q.sk]) continue;
+    const st = st0;
     if (!st) continue;
     const each = st.magnetPerDay * MAGNET_USABLE * days / ING_KINDS;
     for (const k of ING_LIST) have[k] = (have[k] || 0) + each;
@@ -2586,6 +2593,13 @@ function perDayStats(m, helpers, healPerDay){
   const chance = tc ? normalHelps * skillRate(p, m) * tc[Math.min(lv, tc.length) - 1] : 0;
 
   /* 食材ゲットS。1日に何個もらえるか（どの食材かはランダムなので、あとで19種にならす） */
+  /* 食材セレクトS。ポケモンごとに決まったリストから1つ選ばれてまとめて手に入る。
+     「ランダムな3種類」の食材ゲットSとちがい、**もらえる食材の種類が決まっている**ので
+     狙った料理に使える。だから食材ゲットSのような割引はかけない */
+  const drawList = INGREDIENT_DRAW[p.n] || null;
+  const drawPerDay = drawList
+    ? normalHelps * skillRate(p, m) * INGREDIENT_DRAW_VALUE[Math.min(lv, 7) - 1] : 0;
+
   const mag = INGREDIENT_MAGNET[p.sk];
   /* 食材ゲットSは「ランダムに3種類」もらうスキル。ここでは19種にならして足しているが、
      実際には狙った料理の材料になるとは限らず、余りやすい。
@@ -2610,7 +2624,7 @@ function perDayStats(m, helpers, healPerDay){
     minusHealOut = normalHelps * skillRate(p, m) * MINUS_CHEER[Math.min(lv, 6) - 1];
   }
 
-  return { ing, berry, pot, chance, magnetPerDay, plusPerDay,
+  return { ing, berry, pot, chance, magnetPerDay, drawPerDay, drawList, plusPerDay,
            plusIng: p.ings[0][0], isPM: isPlusMinus(p.sk),
            healOut, healTarget, minusHealOut, avgEnergy: sim.avgEnergy,
            snackRate: helpsPerDay > 0 ? (sim.snackHelps || 0) / helpsPerDay : 0,
@@ -2725,6 +2739,7 @@ function evalAlloc(alloc, cands, D){
   const potMons = [];
   let chanceDays = 0;
   const magnets = [];
+  const draws = [];
   let pmDays = 0;
   for (let i = 0; i < cands.length; i++){
     const d = alloc[i];
@@ -2735,7 +2750,14 @@ function evalAlloc(alloc, cands, D){
     if (s.pot > 0) potMons.push({ per: s.pot, days: d });
     chanceDays += (s.chance || 0) * d;
     if (s.magnetPerDay > 0) magnets.push({ s, days: d });
+    if (s.drawPerDay > 0 && s.drawList) draws.push({ s, days: d });
     if (s.isPM) pmDays += d;
+  }
+
+  /* 食材セレクトS。決まったリストの中から手に入るので、そこへ配る（割引なし） */
+  for (const x of draws){
+    const e = x.s.drawPerDay * x.days / x.s.drawList.length;
+    for (const k of x.s.drawList) have[k] = (have[k] || 0) + e;
   }
 
   /* 食材ゲットS。どの食材かはランダムなので19種にならす。

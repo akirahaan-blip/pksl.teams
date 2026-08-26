@@ -395,6 +395,27 @@ INGREDIENT_MAGNET = {
 PLUS_BONUS_COUNT = 14
 
 # 食材の種類数（食材ゲットSをならすのに使う）
+# ---------------------------------------------------------------
+# 食材セレクトS（Ingredient Draw S）
+#   「その子の食材3種から選ばれる」のではなく、
+#   ポケモンごとに決まったリストから1つ選ばれてまとめて手に入る。
+#   出典: pokesleep-tool の MainSkill.ts getIngredientDrawIngredients
+# ---------------------------------------------------------------
+INGREDIENT_DRAW_EN = {
+    "サンド":     ["potato", "corn", "pumpkin"],
+    "サンドパン":   ["potato", "corn", "pumpkin"],
+    "ヤミカラス":   ["mushroom", "sausage", "soy", "coffee"],
+    "ドンカラス":   ["mushroom", "sausage", "soy", "coffee"],
+    "クチート":    ["potato", "oil", "tomato", "corn"],
+    "イシズマイ":   ["potato", "oil", "avocado"],
+    "イワパレス":   ["potato", "oil", "avocado"],
+    "ルチャブル":   ["herb", "ginger", "sausage"],
+    "アブリー":    ["honey", "oil", "corn"],
+    "アブリボン":   ["honey", "oil", "corn"],
+}
+# 1回の発動でもらえる数（スキルLv1〜7）
+INGREDIENT_DRAW_VALUE = [5, 6, 8, 11, 13, 16, 18]
+
 ING_KINDS = 19
 # 食材ゲットSでもらえる食材のうち、実際に料理へ使える割合。
 # ランダムに3種類もらうスキルなので、狙った料理の材料になるとは限らない。
@@ -546,6 +567,20 @@ SKILL_DOWN = ["Lax", "Naive", "Naughty", "Rash"]
 # このツールの計算には使わないが、せいかくをえらぶ画面に出すために持っている
 EXP_UP     = ["Timid", "Hasty", "Jolly", "Naive"]
 EXP_DOWN   = ["Relaxed", "Brave", "Sassy", "Quiet"]
+
+
+def build_draw():
+    """食材セレクトSの取得先を、日本語の食材名に直して返す。
+    食材セレクトSを持つのにリストが無いポケモンがいたら、そこで止める"""
+    out = {}
+    for ja, ens in INGREDIENT_DRAW_EN.items():
+        names = []
+        for en in ens:
+            if en not in ING_JA:
+                die("食材セレクトSの食材「%s」の日本語名が見つかりません" % en)
+            names.append(ING_JA[en])
+        out[ja] = names
+    return out
 
 
 def build_natures():
@@ -710,6 +745,8 @@ def main():
         "const COOKING_UP = %s;" % dump(COOKING_UP),
         "const TASTY_CHANCE = %s;" % dump(TASTY_CHANCE),
         "const INGREDIENT_MAGNET = %s;" % dump(INGREDIENT_MAGNET),
+        "const INGREDIENT_DRAW = %s;" % dump(build_draw()),
+        "const INGREDIENT_DRAW_VALUE = %s;" % dump(INGREDIENT_DRAW_VALUE),
         "const MAGNET_USABLE = %s;" % MAGNET_USABLE,
         "const PLUS_BONUS_COUNT = %d;" % PLUS_BONUS_COUNT,
         "const ING_KINDS = %d;" % ING_KINDS,

@@ -615,6 +615,8 @@ const POT_SIZES = [21,23,25,27,29,31,33,36,39,42,45,48,51,54,57,60,63,66,69,72,7
 const COOKING_UP = {"料理パワーアップS":[7,10,12,17,22,27,31],"マイナス (料理パワーアップS)":[5,7,9,12,16,20,24]};
 const TASTY_CHANCE = {"料理チャンスS":[4,5,6,7,8,10]};
 const INGREDIENT_MAGNET = {"食材ゲットS":[6,8,11,14,17,21,24],"プラス (食材ゲットS)":[5,7,9,11,13,16,18],"プレゼント (食材ゲットS)":[4,6,8,10,12,15,17]};
+const INGREDIENT_DRAW = {"サンド":["ほっこりポテト","ワカクサコーン","ずっしりカボチャ"],"サンドパン":["ほっこりポテト","ワカクサコーン","ずっしりカボチャ"],"ヤミカラス":["あじわいキノコ","マメミート","ワカクサ大豆","めざましコーヒー"],"ドンカラス":["あじわいキノコ","マメミート","ワカクサ大豆","めざましコーヒー"],"クチート":["ほっこりポテト","ピュアなオイル","あんみんトマト","ワカクサコーン"],"イシズマイ":["ほっこりポテト","ピュアなオイル","つやつやアボカド"],"イワパレス":["ほっこりポテト","ピュアなオイル","つやつやアボカド"],"ルチャブル":["げきからハーブ","あったかジンジャー","マメミート"],"アブリー":["あまいミツ","ピュアなオイル","ワカクサコーン"],"アブリボン":["あまいミツ","ピュアなオイル","ワカクサコーン"]};
+const INGREDIENT_DRAW_VALUE = [5,6,8,11,13,16,18];
 const MAGNET_USABLE = 0.5;
 const PLUS_BONUS_COUNT = 14;
 const ING_KINDS = 19;
@@ -3364,8 +3366,15 @@ function gatherIngredients(){
 
   for (const m of team()){
     const q = POKE_BY_NAME[m.name];
-    if (!q || !INGREDIENT_MAGNET[q.sk]) continue;
-    const st = perDayStats(m, helpBonusCount);
+    if (!q) continue;
+    const st0 = perDayStats(m, helpBonusCount);
+    /* 食材セレクトS。決まったリストの中から手に入るので、そこへ配る */
+    if (st0 && st0.drawPerDay > 0 && st0.drawList){
+      const e = st0.drawPerDay * days / st0.drawList.length;
+      for (const k of st0.drawList) have[k] = (have[k] || 0) + e;
+    }
+    if (!INGREDIENT_MAGNET[q.sk]) continue;
+    const st = st0;
     if (!st) continue;
     const each = st.magnetPerDay * MAGNET_USABLE * days / ING_KINDS;
     for (const k of ING_LIST) have[k] = (have[k] || 0) + each;
@@ -3649,6 +3658,13 @@ function perDayStats(m, helpers, healPerDay){
   const chance = tc ? normalHelps * skillRate(p, m) * tc[Math.min(lv, tc.length) - 1] : 0;
 
   /* 食材ゲットS。1日に何個もらえるか（どの食材かはランダムなので、あとで19種にならす） */
+  /* 食材セレクトS。ポケモンごとに決まったリストから1つ選ばれてまとめて手に入る。
+     「ランダムな3種類」の食材ゲットSとちがい、**もらえる食材の種類が決まっている**ので
+     狙った料理に使える。だから食材ゲットSのような割引はかけない */
+  const drawList = INGREDIENT_DRAW[p.n] || null;
+  const drawPerDay = drawList
+    ? normalHelps * skillRate(p, m) * INGREDIENT_DRAW_VALUE[Math.min(lv, 7) - 1] : 0;
+
   const mag = INGREDIENT_MAGNET[p.sk];
   /* 食材ゲットSは「ランダムに3種類」もらうスキル。ここでは19種にならして足しているが、
      実際には狙った料理の材料になるとは限らず、余りやすい。
@@ -3673,7 +3689,7 @@ function perDayStats(m, helpers, healPerDay){
     minusHealOut = normalHelps * skillRate(p, m) * MINUS_CHEER[Math.min(lv, 6) - 1];
   }
 
-  return { ing, berry, pot, chance, magnetPerDay, plusPerDay,
+  return { ing, berry, pot, chance, magnetPerDay, drawPerDay, drawList, plusPerDay,
            plusIng: p.ings[0][0], isPM: isPlusMinus(p.sk),
            healOut, healTarget, minusHealOut, avgEnergy: sim.avgEnergy,
            snackRate: helpsPerDay > 0 ? (sim.snackHelps || 0) / helpsPerDay : 0,
@@ -3788,6 +3804,7 @@ function evalAlloc(alloc, cands, D){
   const potMons = [];
   let chanceDays = 0;
   const magnets = [];
+  const draws = [];
   let pmDays = 0;
   for (let i = 0; i < cands.length; i++){
     const d = alloc[i];
@@ -3798,7 +3815,14 @@ function evalAlloc(alloc, cands, D){
     if (s.pot > 0) potMons.push({ per: s.pot, days: d });
     chanceDays += (s.chance || 0) * d;
     if (s.magnetPerDay > 0) magnets.push({ s, days: d });
+    if (s.drawPerDay > 0 && s.drawList) draws.push({ s, days: d });
     if (s.isPM) pmDays += d;
+  }
+
+  /* 食材セレクトS。決まったリストの中から手に入るので、そこへ配る（割引なし） */
+  for (const x of draws){
+    const e = x.s.drawPerDay * x.days / x.s.drawList.length;
+    for (const k of x.s.drawList) have[k] = (have[k] || 0) + e;
   }
 
   /* 食材ゲットS。どの食材かはランダムなので19種にならす。
