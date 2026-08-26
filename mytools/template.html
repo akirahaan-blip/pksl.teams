@@ -368,7 +368,15 @@ footer a{color:var(--faint)}
       貯めた食材で大きい料理を作っている人は、ここが特に大事です。
     </p>
     <div id="stockGrid"></div>
-    <button class="add" id="stockClear" style="margin-top:8px">全部0にもどす</button>
+    <div class="row" style="margin-top:8px">
+      <button class="add" id="stockRough" style="margin:0; flex:2 1 220px">だいたいで埋める</button>
+      <button class="add" id="stockClear" style="margin:0; flex:1 1 140px">全部0にもどす</button>
+    </div>
+    <p class="hint" style="margin-top:6px">
+      <b>だいたいで埋める</b>を押すと、ふつうの食材を <b>600個</b>、
+      手に入りにくい <b>ふといながねぎ・おいしいシッポ・ずっしりカボチャ</b> を <b>20個</b> で入れます。
+      <b>0から始める人はほとんどいない</b>ので、まずこれで見てみて、
+      分かるものだけ実際の数に直すのがおすすめです。</p>
   </details>
   <p class="hint">カビゴンがリクエストしたカテゴリを選びます。その週はこのカテゴリの料理しか作れません。<br>
     <b>レシピレベル</b>は、同じ料理を作り続けると上がるもので、料理のエナジーがそのぶん増えます。
@@ -3150,6 +3158,15 @@ $("stockGrid").innerHTML = ING_LIST.map(name =>
 $("stockGrid").addEventListener("input", () => render());
 $("stockClear").onclick = () => {
   document.querySelectorAll("[data-stock]").forEach(el => { el.value = "0"; });
+  render();
+};
+/* ぜんぶ手で入れるのは大変なので、ざっくり埋めるボタン。
+   手に入りにくい3種だけ少なめにする */
+const RARE_ING = ["ふといながねぎ", "おいしいシッポ", "ずっしりカボチャ"];
+$("stockRough").onclick = () => {
+  document.querySelectorAll("[data-stock]").forEach(el => {
+    el.value = RARE_ING.indexOf(el.dataset.stock) >= 0 ? "20" : "600";
+  });
   render();
 };
 
