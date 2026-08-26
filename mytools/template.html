@@ -2647,6 +2647,21 @@ function pruneCandidates(list, limit){
   [...list].filter(x => candStat(x,0,0).pot > 0)
            .sort((a,b) => candStat(b,0,0).pot - candStat(a,0,0).pot)
            .slice(0, 4).forEach(x => keep.add(x));
+  /* ヒーラーも必ず残す。きのみも食材もほとんど出さないので、
+     上の3つの条件だけだとここで捨てられてしまい、どれだけ優先しても選べなくなる。
+     「全員回復」はそのまま、「ランダム1匹」はチーム5匹にならした量でくらべる */
+  const healValue = x => {
+    const s = candStat(x,0,0);
+    if (!(s.healOut > 0)) return 0;
+    return s.healTarget === "all" ? s.healOut : s.healOut / TEAM_SIZE;
+  };
+  [...list].filter(x => healValue(x) > 0)
+           .sort((a,b) => healValue(b) - healValue(a))
+           .slice(0, 8).forEach(x => keep.add(x));
+  /* 料理チャンスSも同じ理由で残す（大成功の割合を大きく上げるのに、産出は少ない） */
+  [...list].filter(x => candStat(x,0,0).chance > 0)
+           .sort((a,b) => candStat(b,0,0).chance - candStat(a,0,0).chance)
+           .slice(0, 4).forEach(x => keep.add(x));
   return [...keep];
 }
 
