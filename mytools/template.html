@@ -380,7 +380,7 @@ footer a{color:var(--faint)}
     <ol class="hint" style="margin:8px 0 0; padding-left:1.4em; line-height:2">
       <li>ポケモンスリープで、読み込みたいポケモンの<b>ステータス画面</b>のスクショを撮る</li>
       <li>下の枠にその画像を<b>ドラッグ＆ドロップ</b>するか、枠を押してファイルを選ぶ</li>
-      <li>読み取れたら一覧に追加されるので、<b>レベルと寝顔リボンだけ手で入れて</b>ください</li>
+      <li>読み取れたら一覧に追加されるので、<b>寝顔リボンだけ手で入れて</b>ください</li>
     </ol>
     <div id="shotDrop" tabindex="0">
       ここに画像をドラッグ＆ドロップ<br>
@@ -393,8 +393,10 @@ footer a{color:var(--faint)}
     <div id="shotMsg" style="margin-top:8px"></div>
     <div id="shotCrops"></div>
     <p class="hint">
-      <b>読み取れるもの</b>：ポケモン名・食材3枠（AAAなど）・せいかく・サブスキル5枠<br>
-      <b>読み取れないもの</b>：レベル・スキルLv・寝顔リボン → 追加したあとに手で入れてください<br>
+      <b>読み取れるもの</b>：ポケモン名・<b>レベル</b>・食材3枠（AAAなど）・せいかく・サブスキル5枠<br>
+      <b>読み取れないもの</b>：寝顔リボン・メインスキルのLv → 追加したあとに手で入れてください<br>
+      ※レベルが読めなかったときは 50 で入ります。<b>読み取った数は必ず表示する</b>ので、
+      ちがっていたらその場で直してください。<br>
       ※文字を読む部分はインターネットから部品を取ってくるので、<b>ネットにつながっている必要があります</b>。
       最初の1回だけ少し時間がかかります。
     </p>
@@ -870,6 +872,28 @@ function natureNameFrom(m){
   return "";
 }
 
+/* ====== スクショからポケモンのレベルを読み取る ======
+   ステータス画面には「Lv.」が5つも写っている。
+     ・本人のレベル（例「Lv. 56 バリヤード」）      ← ほしいのはこれ
+     ・食材の枠が開くレベル（Lv.30 / Lv.60）
+     ・サブスキルの枠が開くレベル（Lv.10/25/50/70/80）
+     ・メインスキルのレベル（例「Lv. 2」）
+   見分ける手がかりは「本人のレベルだけは、すぐ後ろにポケモンの名前が来る」こと。
+   ロックの Lv.60 の後ろに「バリヤード」とは書かれていない。
+   読めなかったら null を返す。まちがった数字を入れるくらいなら、手で入れてもらう。 */
+function levelFromHeader(text, name){
+  if (!text || !name) return null;
+  /* 空白と、文字の読みまちがいが起きやすい記号を取りのぞいてから探す */
+  const strip = s => String(s).replace(/[\s.,、。・:：･]/g, "");
+  const flat = strip(text);
+  const nm = strip(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!nm) return null;
+  const m = flat.match(new RegExp("[LlIi][Vv](\\d{1,3})" + nm));
+  if (!m) return null;
+  const lv = Number(m[1]);
+  return (lv >= 1 && lv <= 100) ? lv : null;
+}
+
 /* 読み取った食材3つから、AAA などの食材構成を組み立てる */
 function comboFromNames(p, names){
   const letters = ["A","B","C"];
@@ -990,8 +1014,13 @@ async function readShot(file){
     const shotSubs = (read.subSkills || []).map(sk => (sk && sk.name) || "");
     const gotSubs = shotSubs.filter(Boolean);
 
+    /* レベル。読めなければ 50 のまま（これまでどおり手で入れてもらう） */
+    const raw = read.raw || {};
+    const lvRead = levelFromHeader(raw.header, readName)
+                || levelFromHeader(raw.headerTop, readName);
+
     const mon = {
-      use: true, name, level: 50, combo,
+      use: true, name, level: lvRead || 50, combo,
       nickname: nameOk ? "" : String(readName || "").slice(0, 12),
       /* あとで種類やレベルを直したときに、組み立て直すために覚えておく */
       shotIngs: ingNames.length === 3 ? ingNames : null,
@@ -1036,18 +1065,24 @@ async function readShot(file){
     }
     m += read.nature ? `せいかく：${esc(read.nature.name)}<br>` : `<span style="color:var(--warn)">せいかく：読み取れず</span><br>`;
     if (gotSubs.length){
-      const locked = (shotSubs || []).filter((n,k) => n && 50 < SUBSKILL_LEVELS[k]);
+      const locked = (shotSubs || []).filter((n,k) => n && mon.level < SUBSKILL_LEVELS[k]);
       m += `サブスキル：${gotSubs.map(esc).join("・")}<br>`;
       if (locked.length){
         m += `<span style="color:var(--warn)">うち ${locked.map(esc).join("・")} は
           Lv.${SUBSKILL_LEVELS[(shotSubs||[]).indexOf(locked[0])]} からなので、
-          いまのレベル（50）ではまだ効きません。レベルを直せば自動で反映します。</span><br>`;
+          いまのレベル（${mon.level}）ではまだ効きません。レベルを直せば自動で反映します。</span><br>`;
       }
     } else {
       m += `<span style="color:var(--warn)">サブスキル：読み取れず。手で入れてください。</span><br>`;
     }
-    m += `<b>レベルと寝顔リボンは読み取れません。</b>下の一覧で開いている行に入れてください
-          （いまレベル50で入れてあります）。`;
+    if (lvRead){
+      m += `レベル：<b>Lv.${lvRead}</b>（読み取りました）<br>
+        <b>寝顔リボンだけは、この画面に写っていないので読めません。</b>
+        付いている子は、下の一覧で開いている行に入れてください。`;
+    } else {
+      m += `<span style="color:var(--warn)">レベル：読み取れず。いま <b>50</b> で入れてあります。</span><br>
+        <b>レベルと寝顔リボンを、下の一覧で開いている行に入れてください。</b>`;
+    }
     shotMsg(m, nameOk && comboOk ? "ok" : "warn");
 
   } catch (e){
