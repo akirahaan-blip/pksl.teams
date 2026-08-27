@@ -3232,10 +3232,14 @@ function renderAuto(){
   html += `<h2 style="margin-top:16px">何日目に誰を入れるか</h2><div class="scroll"><table>
     <tr><th>日</th><th>チーム（5匹）</th></tr>` +
     sched.map((p, t) => `<tr><td>${t+1}日目</td><td>${
-      p.map(i => `<span class="pill${candStat(cands[i],0,0).pot > 0 ? " fav" : ""}">${label(i)}</span>`).join("")
+      p.map(i => {
+        const 料理up = candStat(cands[i],0,0).pot > 0;
+        return `<span class="pill${料理up ? " fav" : ""}">${料理up ? "🍲" : ""}${label(i)}</span>`;
+      }).join("")
     }</td></tr>`).join("") + `</table></div>
-    <p class="hint">緑の子は「なべを育てる子（料理パワーアップ持ち）」です。
-       なべを先に大きくするため、早い日に入れています。</p>`;
+    <p class="hint"><b>🍲</b> が付いている子は<b>料理パワーアップ</b>を持っています。
+       その子が入っている日は、<b>その日のなべが大きくなります</b>
+       （料理を1回作るともとに戻るので、次の料理までにたまるぶんだけを数えています）。</p>`;
 
   html += `<div class="note"><b>つまみ食い</b>は、ねている間にカバンがいっぱいになって
     <b>食材が入らなくなった割合</b>です（きのみだけカビゴンに直接渡されます）。
