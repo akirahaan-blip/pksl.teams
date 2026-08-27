@@ -695,13 +695,6 @@ function renderBerries(){
         `<div><label>好みのきのみ ${i+1}${(f.mainOnly && i === 0) ? "（メイン）" : ""}</label>` +
         `<select data-wk="${i}">${opts(t, (f.mainOnly && i === 0) ? f.mainOnly : null)}</select></div>`).join("") +
       '</div>';
-    if (f.mainOnly){
-      html += `<p class="hint" style="margin-top:6px">
-        <b>${esc(f.n)}</b> は、<b>メイン</b>が
-        ${f.mainOnly.map(t => esc(BERRY_BY_TYPE[t]) + "（" + esc(t) + "）").join("・")}
-        の中から選ばれ、<b>のこりの2つは全タイプからランダム</b>に決まります。
-        今週のものを選んでください。</p>`;
-    }
   } else {
     html += '<div class="berries">' +
       base.map(t => `<span class="berry">${esc(BERRY_BY_TYPE[t])}（${esc(t)}）</span>`).join("") +
