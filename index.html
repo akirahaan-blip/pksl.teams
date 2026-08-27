@@ -1776,7 +1776,7 @@ function renderBerries(){
        上で1つめをメインとして選ばせているので、ここには出さない */
     if (!f.mainOnly){
       html += '<div class="row" style="margin-top:8px"><div>' +
-        '<label>メインの好みのきのみ（どれがメイン？）</label>' +
+        '<label>メインの好みのきのみ</label>' +
         '<select id="favMain">' +
         base.map((t,i) =>
           `<option value="${i}"${i===state.favMain?" selected":""}>${esc(BERRY_BY_TYPE[t])}（${esc(t)}）</option>`).join("") +
