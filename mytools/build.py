@@ -848,6 +848,7 @@ def main():
     print("スクショ読み取り: %d ファイルを組み込みました" % len(VISION_ORDER))
 
     build_icons()
+    build_sw()
 
 
 # ---------------------------------------------------------------
@@ -861,6 +862,23 @@ def main():
 # ---------------------------------------------------------------
 ICON_SIZES = [(512, "icon-512.png"), (192, "icon-192.png"),
               (180, "apple-touch-icon.png"), (32, "favicon-32.png")]
+
+
+def build_sw():
+    """アプリ用の部品（sw.js）を書き出す。
+    作り直すたびに中の番号が変わるので、使う人のところにも新しい版が届く"""
+    src = os.path.join(HERE, "sw-template.js")
+    if not os.path.exists(src):
+        print("sw.js: もとになる sw-template.js が無いので、そのままにしました")
+        return
+    import time
+    ver = time.strftime("%Y%m%d-%H%M%S")
+    with open(src, encoding="utf-8") as f:
+        text = f.read().replace("__VERSION__", ver)
+    out = os.path.join(ROOT, "sw.js")
+    with open(out, "w", encoding="utf-8", newline=chr(10)) as f:
+        f.write(text)
+    print("sw.js を書き出しました（版 %s）" % ver)
 
 
 def build_icons():

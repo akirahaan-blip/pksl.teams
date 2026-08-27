@@ -602,6 +602,14 @@ footer a{color:var(--faint)}
 </div>
 
 <script>
+/* アプリとして使えるようにする部品を登録する。
+   file:// で開いたときは使えないので、そのときは何もしない */
+if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+
 /* ====== データ（mytools/build.py が差し込みます） ====== */
 /*__DATA__*/
 
