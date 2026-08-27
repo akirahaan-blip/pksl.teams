@@ -100,6 +100,7 @@ ING_NAMES = set(ING_JA.values())
 # ---------------------------------------------------------------
 def build_pokemon():
     out = []
+    skipped_unknown = []
     for p in pokemon_raw:
         en = p["name"]
         ja = names_ja.get(en)
@@ -108,6 +109,13 @@ def build_pokemon():
 
         # 幻のポケモン（食材が特殊なもの）は、この簡易版では扱わない
         if p.get("mythIng") is not None:
+            continue
+
+        # まだ食材が分かっていないポケモン（本家が仮のデータで入れているもの）は飛ばす。
+        # 例: 2026-08-27 に追加されたミュウツーは食材が unknown1/2/3 になっている。
+        if any((p.get(k) or {}).get("name", "").startswith("unknown")
+               for k in ("ing1", "ing2", "ing3")):
+            skipped_unknown.append(ja)
             continue
 
         slots = []
@@ -146,6 +154,9 @@ def build_pokemon():
         if x["n"] in seen:
             die("ポケモン名が重複しています: " + x["n"])
         seen[x["n"]] = True
+
+    if skipped_unknown:
+        print("  ※食材がまだ分かっていないので外したポケモン: " + "、".join(skipped_unknown))
 
     out.sort(key=lambda x: x["n"])
     return out
