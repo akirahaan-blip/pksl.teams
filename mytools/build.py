@@ -431,6 +431,19 @@ INGREDIENT_DRAW_EN = {
 # 1回の発動でもらえる数（スキルLv1〜7）
 INGREDIENT_DRAW_VALUE = [5, 6, 8, 11, 13, 16, 18]
 
+# ---------------------------------------------------------------
+# きのみバースト（Berry Burst）
+#   自分のきのみを self 個 ＋ チームの他の子のきのみを other 個ずつ集める。
+#   「他の子のきのみ」は、その子のきのみのエナジーで計算する。
+#   出典: pokesleep-tool の MainSkill.ts（getSkillValue / getSkillSubValue）
+#   スキルLv1〜6ぶん（このスキルにLv7はない）
+# ---------------------------------------------------------------
+BERRY_BURST = {
+    "きのみバースト":                 {"self": [11, 14, 21, 24, 27, 30], "other": [1, 2, 2, 3, 4, 5]},
+    "ばけのかわ (きのみバースト)":     {"self": [8, 10, 15, 17, 19, 21],  "other": [1, 2, 2, 3, 4, 5]},
+    "りゅうせいぐん (きのみバースト)": {"self": [18, 30, 37, 45, 49, 55], "other": [1, 1, 2, 3, 4, 4]},
+}
+
 ING_KINDS = 19
 # 食材ゲットSでもらえる食材のうち、実際に料理へ使える割合。
 # ランダムに3種類もらうスキルなので、狙った料理の材料になるとは限らない。
@@ -762,6 +775,7 @@ def main():
         "const INGREDIENT_MAGNET = %s;" % dump(INGREDIENT_MAGNET),
         "const INGREDIENT_DRAW = %s;" % dump(build_draw()),
         "const INGREDIENT_DRAW_VALUE = %s;" % dump(INGREDIENT_DRAW_VALUE),
+        "const BERRY_BURST = %s;" % dump(BERRY_BURST),
         "const MAGNET_USABLE = %s;" % MAGNET_USABLE,
         "const PLUS_BONUS_COUNT = %d;" % PLUS_BONUS_COUNT,
         "const ING_KINDS = %d;" % ING_KINDS,

@@ -614,6 +614,7 @@ const TASTY_CHANCE = {"料理チャンスS":[4,5,6,7,8,10]};
 const INGREDIENT_MAGNET = {"食材ゲットS":[6,8,11,14,17,21,24],"プラス (食材ゲットS)":[5,7,9,11,13,16,18],"プレゼント (食材ゲットS)":[4,6,8,10,12,15,17]};
 const INGREDIENT_DRAW = {"サンド":["ほっこりポテト","ワカクサコーン","ずっしりカボチャ"],"サンドパン":["ほっこりポテト","ワカクサコーン","ずっしりカボチャ"],"ヤミカラス":["あじわいキノコ","マメミート","ワカクサ大豆","めざましコーヒー"],"ドンカラス":["あじわいキノコ","マメミート","ワカクサ大豆","めざましコーヒー"],"クチート":["ほっこりポテト","ピュアなオイル","あんみんトマト","ワカクサコーン"],"イシズマイ":["ほっこりポテト","ピュアなオイル","つやつやアボカド"],"イワパレス":["ほっこりポテト","ピュアなオイル","つやつやアボカド"],"ルチャブル":["げきからハーブ","あったかジンジャー","マメミート"],"アブリー":["あまいミツ","ピュアなオイル","ワカクサコーン"],"アブリボン":["あまいミツ","ピュアなオイル","ワカクサコーン"]};
 const INGREDIENT_DRAW_VALUE = [5,6,8,11,13,16,18];
+const BERRY_BURST = {"きのみバースト":{"self":[11,14,21,24,27,30],"other":[1,2,2,3,4,5]},"ばけのかわ (きのみバースト)":{"self":[8,10,15,17,19,21],"other":[1,2,2,3,4,5]},"りゅうせいぐん (きのみバースト)":{"self":[18,30,37,45,49,55],"other":[1,1,2,3,4,4]}};
 const MAGNET_USABLE = 0.5;
 const PLUS_BONUS_COUNT = 14;
 const ING_KINDS = 19;
@@ -3103,6 +3104,34 @@ function planCooking(have, capByDay, D, chancePerDay, stock){
 /* チーム全体のヒーラーが、1匹あたり1日どれだけ回復させるかを見積もる。
    ヒーラー自身のおてつだい回数も、げんきの影響を受ける（＝にわとりと卵）ので、
    まず「回復なし」で見積もってから、その結果をもう一度使って計算し直す */
+/* きのみバーストで「他の子から取ってくるぶん」のエナジー。
+   相手のきのみ1個ぶんのエナジー（好みなら2倍）でかぞえるので、
+   チームの顔ぶれがそろってからでないと出せない。
+   list = チームのポケモン（最大5匹）、helpBonusCount = おてつだいボーナスの数 */
+function teamBurstEnergy(list, helpBonusCount, healEach){
+  const members = list.filter(m => POKE_BY_NAME[m.name]);
+  if (members.length < 2) return 0;
+  const favs = favTypes();
+  const ex = EX_EFFECT[state.exEffect];
+  /* 相手1匹あたりの「きのみ1個のエナジー」 */
+  const 単価 = members.map(m => {
+    const p = POKE_BY_NAME[m.name];
+    const mul = favs.includes(p.t) ? ((ex && ex.berryMul) ? ex.berryMul : 2) : 1;
+    return berryEnergy(p.t, m.level) * mul;
+  });
+  let total = 0;
+  members.forEach((m, i) => {
+    const st = perDayStats(m, helpBonusCount, healEach ? (healEach[m.name] || 0) : 0);
+    if (!st || !(st.burstOther > 0)) return;
+    /* 自分以外の全員から、それぞれ burstOther 個ぶん取ってくる */
+    for (let j = 0; j < members.length; j++){
+      if (j === i) continue;
+      total += st.burstOther * 単価[j];
+    }
+  });
+  return total;
+}
+
 function teamHealing(list, helpBonusCount){
   const members = list.filter(m => POKE_BY_NAME[m.name]);
   const n = members.length || 1;
@@ -3667,6 +3696,18 @@ function perDayStats(m, helpers, healPerDay){
   /* EXでは「メインの好みのきのみ」のポケモンはスキルレベルが +1 される */
   const lvBonus = isMainFavPoke(p) ? EX_MAIN_SKILL_LEVEL_BONUS : 0;
   const lv = Math.min(Math.max((m.skillLevel || 6) + lvBonus, 1), 7);
+
+  /* きのみバースト。自分のきのみを self 個、チームの他の子のきのみを other 個ずつ集める。
+     「他の子のぶん」はチームの顔ぶれで変わるので、ここでは個数だけ持っておき、
+     エナジーに直すのはチームがそろってから（teamBurstEnergy） */
+  const bb = BERRY_BURST[p.sk];
+  let burstSelf = 0, burstOther = 0;
+  if (bb){
+    const bl = Math.min(Math.max((m.skillLevel || 6) + lvBonus, 1), 6);   /* このスキルはLv6まで */
+    const procs = normalHelps * skillRate(p, m);
+    burstSelf  = procs * bb.self[bl - 1] * berryEnergy(p.t, m.level) * favMul;
+    burstOther = procs * bb.other[bl - 1];        /* 何個ぶん取るか（相手ごと） */
+  }
   const pot = up ? normalHelps * skillRate(p, m) * up[lv - 1] : 0;
 
   /* 料理チャンスS が1日に上げてくれる大成功率（％） */
@@ -3705,7 +3746,8 @@ function perDayStats(m, helpers, healPerDay){
     minusHealOut = normalHelps * skillRate(p, m) * MINUS_CHEER[Math.min(lv, 6) - 1];
   }
 
-  return { ing, berry, pot, chance, magnetPerDay, drawPerDay, drawList, plusPerDay,
+  return { ing, berry: berry + burstSelf, burstSelf, burstOther,
+           pot, chance, magnetPerDay, drawPerDay, drawList, plusPerDay,
            plusIng: p.ings[0][0], isPM: isPlusMinus(p.sk),
            healOut, healTarget, minusHealOut, avgEnergy: sim.avgEnergy,
            snackRate: helpsPerDay > 0 ? (sim.snackHelps || 0) / helpsPerDay : 0,
@@ -3833,6 +3875,30 @@ function evalAlloc(alloc, cands, D){
     if (s.magnetPerDay > 0) magnets.push({ s, days: d });
     if (s.drawPerDay > 0 && s.drawList) draws.push({ s, days: d });
     if (s.isPM) pmDays += d;
+  }
+
+  /* きのみバーストが「他の子から取ってくるぶん」。
+     取ってくる相手はチームの他の4匹なので、
+     いっしょに入っている子の「きのみ1個ぶんのエナジー」の平均でかぞえる */
+  {
+    const favs = favTypes();
+    const ex = EX_EFFECT[state.exEffect];
+    let 単価計 = 0, 日数計 = 0;
+    for (let i = 0; i < cands.length; i++){
+      const d = alloc[i]; if (!d) continue;
+      const c = cands[i];
+      const p2 = POKE_BY_NAME[c.name]; if (!p2) continue;
+      const mul = favs.includes(p2.t) ? ((ex && ex.berryMul) ? ex.berryMul : 2) : 1;
+      /* 候補は { mon, name, ... } の形。レベルは c.mon.level にある */
+      単価計 += berryEnergy(p2.t, c.mon.level) * mul * d;
+      日数計 += d;
+    }
+    const 平均単価 = 日数計 ? 単価計 / 日数計 : 0;
+    for (let i = 0; i < cands.length; i++){
+      const d = alloc[i]; if (!d) continue;
+      const s2 = candStat(cands[i], helpers, healIdx[i] || 0);
+      if (s2.burstOther > 0) berry += s2.burstOther * 平均単価 * (TEAM_SIZE - 1) * d;
+    }
   }
 
   /* 食材セレクトS。決まったリストの中から手に入るので、そこへ配る（割引なし） */
