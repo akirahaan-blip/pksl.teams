@@ -245,6 +245,12 @@ tr.no td{color:var(--faint)}
 .pill.fav{background:var(--accent-soft); border-color:var(--accent)}
 
 .empty{color:var(--faint); font-size:13px; text-align:center; padding:16px 0;font-weight:700}
+/* 見おとしてほしくないところ。下線で目立たせる */
+.stress{
+  text-decoration:underline; text-decoration-color:var(--accent);
+  text-decoration-thickness:2px; text-underline-offset:3px;
+  color:var(--text);
+}
 .note{
   background:var(--surface2); border-left:3px solid var(--warn);
   border-radius:0 8px 8px 0; padding:10px 12px; font-size:12.5px; color:var(--dim);
@@ -263,7 +269,6 @@ footer a{color:var(--faint)}
 </header>
 
 <section>
-  <div id="cfgBack"></div>
   <h2><span class="num">1</span>行くフィールド</h2>
   <div class="row">
     <div>
@@ -276,7 +281,6 @@ footer a{color:var(--faint)}
     </div>
   </div>
   <div id="berryArea"></div>
-  <p class="hint">フィールドボーナスは、ゲーム内のフィールド選択画面の「エリアボーナス ○％」の数字です。</p>
 </section>
 
 <section>
@@ -474,12 +478,12 @@ footer a{color:var(--faint)}
     フィールドボーナスなど）が変わると、おすすめも変わります。<br>
     <b>「これが唯一の正解」というものではありません。</b>編成を考えるときの
     ひとつの目安として使ってください。<br>
-    <b>この計算は「1日は1つの編成でとおす」前提です。</b>
+    <span class="stress">この計算は「1日は1つの編成でとおす」前提です。</span>
     実際には「カカオが2回ぶん集まったから蜜を集める子に替える」「料理パワーアップが発動したから
-    抜く」というように、<b>1日の中で何度も入れ替える</b>遊び方があります。
-    そういう立ち回りはここでは計算できないので、<b>上手に回している人ほど、
-    出る数字は実際より低くなります。</b>
-    合計の数字より、下に出る<b>「なぜこの料理か」（どの食材が足りないか・誰が出すか）</b>の方が、
+    抜く」というように、<span class="stress">一日の中で都度入れかえるプレイングがほとんどだと思います。</span>
+    そういう立ち回りはここでは計算できないので、<span class="stress">上手に回している人ほど、
+    出る数字は実際より低くなります。</span><br>
+    合計の数字より、下に出る<span class="stress">「なぜこの料理か」（どの食材が足りないか・誰が出すか）</span>の方が、
     入れ替えを考えるときの役に立つはずです。
   </p>
 </section>
@@ -1796,8 +1800,7 @@ function renderBerries(){
        <b>メインの好みのきのみ</b>のポケモンは、それに加えて<b>メインスキルのレベルが+1</b>されます。<br>
        また、<b>メインの好みのきのみ</b>のポケモンは
 おてつだいが <b>${Math.round(b.main*100)}%速く</b>なり、
-       <b>好みでないきのみ</b>のポケモンは <b>${Math.round(b.non*100)}%遅く</b>なります。
-       残りの2つは「サブの好み」で、エナジー2倍だけがつきます。</p>`;
+       <b>好みでないきのみ</b>のポケモンは <b>${Math.round(b.non*100)}%遅く</b>なります。</p>`;
   }
 
   area.innerHTML = html;
@@ -4670,16 +4673,6 @@ if (hadCfg){
   renderPotView();
   renderNc();
   renderRecipeLv();
-  /* フィールドと今週のカテゴリは毎週変わるので、そのまま使わないよう声をかける */
-  const el = $("cfgBack");
-  if (el){
-    el.innerHTML = `<div class="note" style="border-left-color:var(--good)">
-      前に入れた設定を戻しました（フィールドボーナス <b>${esc($("fieldBonus").value)}%</b>／
-      なべ <b>${esc($("pot").value)}</b>／食材の在庫）。<br>
-      <b>フィールドと今週の料理カテゴリは毎週変わります。</b>
-      いまは <b>${esc(FIELDS[state.fieldIndex].n)}／${esc(state.cat)}</b> になっています。
-      ちがっていたら選び直してください。</div>`;
-  }
 }
 
 /* 前に保存したポケモンがあれば読み出す */
