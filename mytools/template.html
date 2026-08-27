@@ -263,6 +263,7 @@ footer a{color:var(--faint)}
 </header>
 
 <section>
+  <div id="cfgBack"></div>
   <h2><span class="num">1</span>行くフィールド</h2>
   <div class="row">
     <div>
@@ -1869,6 +1870,63 @@ function importBoxFile(file){
   reader.readAsText(file);
 }
 
+/* ====== 入力した設定をおぼえておく ======
+   なべの大きさやフィールドボーナスを毎回入れ直すのは大変なので、
+   このパソコン（ブラウザ）に残しておく。
+   ※フィールドや今週のカテゴリなど、毎週変わるものも一緒に残すので、
+     開いたときは「今週のもので合っているか」を確かめてもらう。 */
+const CFG_KEY = "ryoriNaviConfig";
+const CFG_INPUTS = ["field", "fieldBonus", "pot", "potAdd", "ticket",
+                    "sleepScore", "days", "eventDish", "eventSkill", "recipeLv",
+                    "ncOn", "ncLv", "ncStop", "keepEnergy", "sunday"];
+let cfgTimer = null;
+
+function saveConfig(){
+  if (cfgTimer !== null) clearTimeout(cfgTimer);
+  cfgTimer = setTimeout(() => {
+    cfgTimer = null;
+    try {
+      const o = {};
+      CFG_INPUTS.forEach(id => {
+        const el = $(id); if (!el) return;
+        o[id] = (el.type === "checkbox") ? el.checked : el.value;
+      });
+      o.cat = state.cat;
+      o.exEffect = state.exEffect;
+      o.favMain = state.favMain;
+      o.wakakusaTypes = state.wakakusaTypes;
+      o.stock = stockOf();
+      localStorage.setItem(CFG_KEY, JSON.stringify(o));
+    } catch(e){}
+  }, 400);
+}
+
+function loadConfig(){
+  let o = null;
+  try { o = JSON.parse(localStorage.getItem(CFG_KEY) || "null"); } catch(e){}
+  if (!o || typeof o !== "object") return false;
+  /* 先に state を戻す（画面を作り直すときに使うため） */
+  if (typeof o.cat === "string") state.cat = o.cat;
+  if (typeof o.exEffect === "string") state.exEffect = o.exEffect;
+  if (typeof o.favMain === "number") state.favMain = o.favMain;
+  if (Array.isArray(o.wakakusaTypes) && o.wakakusaTypes.length === 3) state.wakakusaTypes = o.wakakusaTypes;
+  CFG_INPUTS.forEach(id => {
+    if (!(id in o)) return;
+    const el = $(id); if (!el) return;
+    if (el.type === "checkbox") el.checked = !!o[id];
+    else el.value = o[id];
+  });
+  if ($("field")) state.fieldIndex = Number($("field").value) || 0;
+  /* 食材の在庫 */
+  if (o.stock && typeof o.stock === "object"){
+    document.querySelectorAll("[data-stock]").forEach(el => {
+      const v = Number(o.stock[el.dataset.stock]);
+      el.value = String(v > 0 ? Math.round(v) : 0);
+    });
+  }
+  return true;
+}
+
 /* 料理ごとのレシピレベル。パソコンに覚えさせておく */
 const LV_KEY = "ryoriNaviRecipeLv";
 let recipeLvMap = {};
@@ -2583,7 +2641,7 @@ function render(){
 
 /* 手動の結果を出したあと、自動の答えも組み直す */
 const renderManual = render;
-render = function(){ renderManual(); saveBox(); scheduleAuto(); };
+render = function(){ renderManual(); saveBox(); saveConfig(); scheduleAuto(); };
 
 /* ================================================================
    自動でチームを組む
@@ -3534,6 +3592,26 @@ $("boxFromTextBtn").onclick = () => importBoxText($("boxText").value);
 ["sleepScore","days","potAdd"].forEach(id => $(id).addEventListener("input", () => { renderPotView(); render(); }));
 $("keepEnergy").addEventListener("change", () => render());
 ["pot","ticket"].forEach(id => $(id).addEventListener("change", () => { renderPotView(); render(); }));
+
+/* 前に入れた設定（なべ・フィールドボーナスなど）を戻す */
+const hadCfg = loadConfig();
+if (hadCfg){
+  buildCats();
+  renderBerries();
+  renderPotView();
+  renderNc();
+  renderRecipeLv();
+  /* フィールドと今週のカテゴリは毎週変わるので、そのまま使わないよう声をかける */
+  const el = $("cfgBack");
+  if (el){
+    el.innerHTML = `<div class="note" style="border-left-color:var(--good)">
+      前に入れた設定を戻しました（フィールドボーナス <b>${esc($("fieldBonus").value)}%</b>／
+      なべ <b>${esc($("pot").value)}</b>／食材の在庫）。<br>
+      <b>フィールドと今週の料理カテゴリは毎週変わります。</b>
+      いまは <b>${esc(FIELDS[state.fieldIndex].n)}／${esc(state.cat)}</b> になっています。
+      ちがっていたら選び直してください。</div>`;
+  }
+}
 
 /* 前に保存したポケモンがあれば読み出す */
 const hadBox = loadBox();
