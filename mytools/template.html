@@ -2631,6 +2631,22 @@ function perDayStats(m, helpers, healPerDay){
   const lvBonus = isMainFavPoke(p) ? EX_MAIN_SKILL_LEVEL_BONUS : 0;
   const lv = Math.min(Math.max((m.skillLevel || 6) + lvBonus, 1), 7);
 
+  /* エナジーチャージ。カビゴンのエナジーを直接ふやす。
+     きのみや料理とは別に足される。フィールドボーナスがかかる
+     （出典: PokemonStrength.ts の mainSkillBase * (1 + fieldBonus/100)） */
+  const cs = CHARGE_STRENGTH[p.sk];
+  const chargePerDay = cs
+    ? normalHelps * skillRate(p, m) * cs[Math.min(lv, 7) - 1] * (1 + fieldBonus() / 100) : 0;
+
+  /* おてつだいサポートS。チームの他の子のおてつだいを、まとめて何回ぶんか進める。
+     何回ぶん進むかだけ持っておき、エナジーに直すのはチームがそろってから */
+  const extraHelps = EXTRA_HELPFUL && /おてつだいサポートS/.test(p.sk)
+    ? normalHelps * skillRate(p, m) * EXTRA_HELPFUL[Math.min(lv, 7) - 1] : 0;
+
+  /* おてつだいブースト。チーム全員のおてつだいを何回ぶんか進める */
+  const boostHelps = HELPER_BOOST && /おてつだいブースト/.test(p.sk)
+    ? normalHelps * skillRate(p, m) * HELPER_BOOST[Math.min(lv, 6) - 1] : 0;
+
   /* きのみバースト。自分のきのみを self 個、チームの他の子のきのみを other 個ずつ集める。
      「他の子のぶん」はチームの顔ぶれで変わるので、ここでは個数だけ持っておき、
      エナジーに直すのはチームがそろってから（teamBurstEnergy） */
@@ -2680,7 +2696,8 @@ function perDayStats(m, helpers, healPerDay){
     minusHealOut = normalHelps * skillRate(p, m) * MINUS_CHEER[Math.min(lv, 6) - 1];
   }
 
-  return { ing, berry: berry + burstSelf, burstSelf, burstOther,
+  return { ing, berry: berry + burstSelf + chargePerDay,
+           burstSelf, burstOther, chargePerDay, extraHelps, boostHelps,
            pot, chance, magnetPerDay, drawPerDay, drawList, plusPerDay,
            plusIng: p.ings[0][0], isPM: isPlusMinus(p.sk),
            healOut, healTarget, minusHealOut, avgEnergy: sim.avgEnergy,
@@ -2811,13 +2828,16 @@ function evalAlloc(alloc, cands, D){
     if (s.isPM) pmDays += d;
   }
 
-  /* きのみバーストが「他の子から取ってくるぶん」。
-     取ってくる相手はチームの他の4匹なので、
-     いっしょに入っている子の「きのみ1個ぶんのエナジー」の平均でかぞえる */
+  /* チームの顔ぶれで効き方が変わるスキルを、ここでまとめて足す。
+     ・きのみバーストが「他の子から取ってくるぶん」
+     ・おてつだいサポートS（他の子のおてつだいを進める）
+     ・おてつだいブースト（全員のおてつだいを進める）
+     どれも相手のきのみで数えるので、いっしょに入っている子の
+     「おてつだい1回ぶんのエナジー」の平均を使う */
   {
     const favs = favTypes();
     const ex = EX_EFFECT[state.exEffect];
-    let 単価計 = 0, 日数計 = 0;
+    let 単価計 = 0, 日数計 = 0, 一回ぶん計 = 0;
     for (let i = 0; i < cands.length; i++){
       const d = alloc[i]; if (!d) continue;
       const c = cands[i];
@@ -2825,13 +2845,19 @@ function evalAlloc(alloc, cands, D){
       const mul = favs.includes(p2.t) ? ((ex && ex.berryMul) ? ex.berryMul : 2) : 1;
       /* 候補は { mon, name, ... } の形。レベルは c.mon.level にある */
       単価計 += berryEnergy(p2.t, c.mon.level) * mul * d;
+      /* おてつだい1回でもらえるきのみのエナジー（食材の回は数えない） */
+      const cnt = (p2.sp === "きのみ" ? 2 : 1) + (c.mon.berryS ? 1 : 0);
+      一回ぶん計 += berryEnergy(p2.t, c.mon.level) * mul * cnt * d;
       日数計 += d;
     }
     const 平均単価 = 日数計 ? 単価計 / 日数計 : 0;
+    const 平均一回ぶん = 日数計 ? 一回ぶん計 / 日数計 : 0;
     for (let i = 0; i < cands.length; i++){
       const d = alloc[i]; if (!d) continue;
       const s2 = candStat(cands[i], helpers, healIdx[i] || 0);
       if (s2.burstOther > 0) berry += s2.burstOther * 平均単価 * (TEAM_SIZE - 1) * d;
+      if (s2.extraHelps > 0) berry += s2.extraHelps * 平均一回ぶん * d;
+      if (s2.boostHelps > 0) berry += s2.boostHelps * 平均一回ぶん * TEAM_SIZE * d;
     }
   }
 

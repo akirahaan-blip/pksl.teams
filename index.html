@@ -615,6 +615,9 @@ const INGREDIENT_MAGNET = {"食材ゲットS":[6,8,11,14,17,21,24],"プラス (�
 const INGREDIENT_DRAW = {"サンド":["ほっこりポテト","ワカクサコーン","ずっしりカボチャ"],"サンドパン":["ほっこりポテト","ワカクサコーン","ずっしりカボチャ"],"ヤミカラス":["あじわいキノコ","マメミート","ワカクサ大豆","めざましコーヒー"],"ドンカラス":["あじわいキノコ","マメミート","ワカクサ大豆","めざましコーヒー"],"クチート":["ほっこりポテト","ピュアなオイル","あんみんトマト","ワカクサコーン"],"イシズマイ":["ほっこりポテト","ピュアなオイル","つやつやアボカド"],"イワパレス":["ほっこりポテト","ピュアなオイル","つやつやアボカド"],"ルチャブル":["げきからハーブ","あったかジンジャー","マメミート"],"アブリー":["あまいミツ","ピュアなオイル","ワカクサコーン"],"アブリボン":["あまいミツ","ピュアなオイル","ワカクサコーン"]};
 const INGREDIENT_DRAW_VALUE = [5,6,8,11,13,16,18];
 const BERRY_BURST = {"きのみバースト":{"self":[11,14,21,24,27,30],"other":[1,2,2,3,4,5]},"ばけのかわ (きのみバースト)":{"self":[8,10,15,17,19,21],"other":[1,2,2,3,4,5]},"りゅうせいぐん (きのみバースト)":{"self":[18,30,37,45,49,55],"other":[1,1,2,3,4,4]}};
+const CHARGE_STRENGTH = {"エナジーチャージS":[400,569,785,1083,1496,2066,3212],"エナジーチャージS (ランダム)":[500,711.5,981.5,1354,1870,2582.5,4015],"たくわえる (エナジーチャージS)":[644.3,915.95,1263.97,1745.19,2408.59,3327.75,4834.38],"エナジーチャージM":[880,1251,1726,2383,3290,4546,6858],"ゆめくい (エナジーチャージM)":[2640,3753,5178,7149,9870,13638,18515]};
+const EXTRA_HELPFUL = [6,7,8,9,10,11,12];
+const HELPER_BOOST = [2,3,3,4,4,5];
 const MAGNET_USABLE = 0.5;
 const PLUS_BONUS_COUNT = 14;
 const ING_KINDS = 19;
@@ -3697,6 +3700,22 @@ function perDayStats(m, helpers, healPerDay){
   const lvBonus = isMainFavPoke(p) ? EX_MAIN_SKILL_LEVEL_BONUS : 0;
   const lv = Math.min(Math.max((m.skillLevel || 6) + lvBonus, 1), 7);
 
+  /* エナジーチャージ。カビゴンのエナジーを直接ふやす。
+     きのみや料理とは別に足される。フィールドボーナスがかかる
+     （出典: PokemonStrength.ts の mainSkillBase * (1 + fieldBonus/100)） */
+  const cs = CHARGE_STRENGTH[p.sk];
+  const chargePerDay = cs
+    ? normalHelps * skillRate(p, m) * cs[Math.min(lv, 7) - 1] * (1 + fieldBonus() / 100) : 0;
+
+  /* おてつだいサポートS。チームの他の子のおてつだいを、まとめて何回ぶんか進める。
+     何回ぶん進むかだけ持っておき、エナジーに直すのはチームがそろってから */
+  const extraHelps = EXTRA_HELPFUL && /おてつだいサポートS/.test(p.sk)
+    ? normalHelps * skillRate(p, m) * EXTRA_HELPFUL[Math.min(lv, 7) - 1] : 0;
+
+  /* おてつだいブースト。チーム全員のおてつだいを何回ぶんか進める */
+  const boostHelps = HELPER_BOOST && /おてつだいブースト/.test(p.sk)
+    ? normalHelps * skillRate(p, m) * HELPER_BOOST[Math.min(lv, 6) - 1] : 0;
+
   /* きのみバースト。自分のきのみを self 個、チームの他の子のきのみを other 個ずつ集める。
      「他の子のぶん」はチームの顔ぶれで変わるので、ここでは個数だけ持っておき、
      エナジーに直すのはチームがそろってから（teamBurstEnergy） */
@@ -3746,7 +3765,8 @@ function perDayStats(m, helpers, healPerDay){
     minusHealOut = normalHelps * skillRate(p, m) * MINUS_CHEER[Math.min(lv, 6) - 1];
   }
 
-  return { ing, berry: berry + burstSelf, burstSelf, burstOther,
+  return { ing, berry: berry + burstSelf + chargePerDay,
+           burstSelf, burstOther, chargePerDay, extraHelps, boostHelps,
            pot, chance, magnetPerDay, drawPerDay, drawList, plusPerDay,
            plusIng: p.ings[0][0], isPM: isPlusMinus(p.sk),
            healOut, healTarget, minusHealOut, avgEnergy: sim.avgEnergy,
@@ -3877,13 +3897,16 @@ function evalAlloc(alloc, cands, D){
     if (s.isPM) pmDays += d;
   }
 
-  /* きのみバーストが「他の子から取ってくるぶん」。
-     取ってくる相手はチームの他の4匹なので、
-     いっしょに入っている子の「きのみ1個ぶんのエナジー」の平均でかぞえる */
+  /* チームの顔ぶれで効き方が変わるスキルを、ここでまとめて足す。
+     ・きのみバーストが「他の子から取ってくるぶん」
+     ・おてつだいサポートS（他の子のおてつだいを進める）
+     ・おてつだいブースト（全員のおてつだいを進める）
+     どれも相手のきのみで数えるので、いっしょに入っている子の
+     「おてつだい1回ぶんのエナジー」の平均を使う */
   {
     const favs = favTypes();
     const ex = EX_EFFECT[state.exEffect];
-    let 単価計 = 0, 日数計 = 0;
+    let 単価計 = 0, 日数計 = 0, 一回ぶん計 = 0;
     for (let i = 0; i < cands.length; i++){
       const d = alloc[i]; if (!d) continue;
       const c = cands[i];
@@ -3891,13 +3914,19 @@ function evalAlloc(alloc, cands, D){
       const mul = favs.includes(p2.t) ? ((ex && ex.berryMul) ? ex.berryMul : 2) : 1;
       /* 候補は { mon, name, ... } の形。レベルは c.mon.level にある */
       単価計 += berryEnergy(p2.t, c.mon.level) * mul * d;
+      /* おてつだい1回でもらえるきのみのエナジー（食材の回は数えない） */
+      const cnt = (p2.sp === "きのみ" ? 2 : 1) + (c.mon.berryS ? 1 : 0);
+      一回ぶん計 += berryEnergy(p2.t, c.mon.level) * mul * cnt * d;
       日数計 += d;
     }
     const 平均単価 = 日数計 ? 単価計 / 日数計 : 0;
+    const 平均一回ぶん = 日数計 ? 一回ぶん計 / 日数計 : 0;
     for (let i = 0; i < cands.length; i++){
       const d = alloc[i]; if (!d) continue;
       const s2 = candStat(cands[i], helpers, healIdx[i] || 0);
       if (s2.burstOther > 0) berry += s2.burstOther * 平均単価 * (TEAM_SIZE - 1) * d;
+      if (s2.extraHelps > 0) berry += s2.extraHelps * 平均一回ぶん * d;
+      if (s2.boostHelps > 0) berry += s2.boostHelps * 平均一回ぶん * TEAM_SIZE * d;
     }
   }
 

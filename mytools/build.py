@@ -438,6 +438,30 @@ INGREDIENT_DRAW_VALUE = [5, 6, 8, 11, 13, 16, 18]
 #   出典: pokesleep-tool の MainSkill.ts（getSkillValue / getSkillSubValue）
 #   スキルLv1〜6ぶん（このスキルにLv7はない）
 # ---------------------------------------------------------------
+# ---------------------------------------------------------------
+# エナジーチャージ（Charge Strength）
+#   カビゴンのエナジーを直接ふやすスキル。きのみや料理とは別に加算される。
+#   フィールドボーナスがかかる（出典: PokemonStrength.ts
+#   mainSkillBase * (1 + fieldBonus / 100)）。
+#   数値は MainSkill.ts の getSkillValue（スキルLv1〜7）
+# ---------------------------------------------------------------
+CHARGE_STRENGTH = {
+    "エナジーチャージS":                 [400, 569, 785, 1083, 1496, 2066, 3212],
+    "エナジーチャージS (ランダム)":       [500, 711.5, 981.5, 1354, 1870, 2582.5, 4015],
+    "たくわえる (エナジーチャージS)":     [644.3, 915.95, 1263.97, 1745.19, 2408.59, 3327.75, 4834.38],
+    "エナジーチャージM":                 [880, 1251, 1726, 2383, 3290, 4546, 6858],
+    "ゆめくい (エナジーチャージM)":       [2640, 3753, 5178, 7149, 9870, 13638, 18515],
+}
+
+# おてつだいサポートS（Extra Helpful S）
+#   チームの他の子のおてつだいを、まとめて何回ぶんか進める
+EXTRA_HELPFUL = [6, 7, 8, 9, 10, 11, 12]
+
+# おてつだいブースト（Helper Boost）
+#   チームに同じきのみの子が何匹いるかで変わる。ここでは控えめに
+#   「1匹だけ」のときの値を使う（出典: MainSkill.ts）
+HELPER_BOOST = [2, 3, 3, 4, 4, 5]
+
 BERRY_BURST = {
     "きのみバースト":                 {"self": [11, 14, 21, 24, 27, 30], "other": [1, 2, 2, 3, 4, 5]},
     "ばけのかわ (きのみバースト)":     {"self": [8, 10, 15, 17, 19, 21],  "other": [1, 2, 2, 3, 4, 5]},
@@ -776,6 +800,9 @@ def main():
         "const INGREDIENT_DRAW = %s;" % dump(build_draw()),
         "const INGREDIENT_DRAW_VALUE = %s;" % dump(INGREDIENT_DRAW_VALUE),
         "const BERRY_BURST = %s;" % dump(BERRY_BURST),
+        "const CHARGE_STRENGTH = %s;" % dump(CHARGE_STRENGTH),
+        "const EXTRA_HELPFUL = %s;" % dump(EXTRA_HELPFUL),
+        "const HELPER_BOOST = %s;" % dump(HELPER_BOOST),
         "const MAGNET_USABLE = %s;" % MAGNET_USABLE,
         "const PLUS_BONUS_COUNT = %d;" % PLUS_BONUS_COUNT,
         "const ING_KINDS = %d;" % ING_KINDS,
