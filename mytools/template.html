@@ -2970,13 +2970,33 @@ function evalAlloc(alloc, cands, D){
   /* げんきを保つことを優先するとき、保ちきれない編成は選ばれにくくする。
      ヒーラーを1匹も持っていない人は全部の編成が同じだけ下がるので、順位は変わらない。
      表示する合計エナジーには手を入れない（数字をいじると分からなくなるため） */
+  /* 準伝説・幻はチームに1匹まで（ラティアス＋ラティオスだけ2匹OK）。
+     日割りにすると入りきらない編成を、はじめから高く見積もらないようにする。
+     「その子が入っている日数の合計」が、入れられる日数をこえていたら減点する */
+  let 伝説オーバー = 0;
+  {
+    let 伝説日数 = 0, ペア日数 = 0;
+    for (let i = 0; i < cands.length; i++){
+      const d = alloc[i]; if (!d) continue;
+      const n = cands[i].name;
+      if (LEGENDARY.indexOf(n) < 0) continue;
+      伝説日数 += d;
+      if (LEGENDARY_PAIR.indexOf(n) >= 0) ペア日数 += d;
+    }
+    /* 1日に入れられるのは1匹（ラティ2匹のぶんだけ上限がのびる） */
+    const 入れられる = D + Math.min(ペア日数, D);
+    伝説オーバー = Math.max(0, 伝説日数 - 入れられる);
+  }
+
   const need  = energyNeedPerDay();
   const keeps = healBase >= need;
   /* 足りない分に応じて、なだらかに下げる。
      「足りなければ一律に大きく下げる」だと、ヒーラー2匹でようやく足りる場合に
      1匹目を入れた時点で損になり、そこで探索が止まってしまう（坂を登れない）。 */
   const ratio = Math.min(1, healBase / Math.max(1, need));
-  const rank  = keepEnergy() ? total * (0.25 + 0.75 * ratio) : total;
+  let rank  = keepEnergy() ? total * (0.25 + 0.75 * ratio) : total;
+  /* 準伝説を入れすぎている編成は、そのぶん選ばれにくくする */
+  if (伝説オーバー > 0) rank *= Math.max(0.05, 1 - 伝説オーバー * 0.3);
 
   return { total, rank, keeps, berry, menu, have, helpers, capByDay, chancePerDay,
            healIdx, healBase, nc };
@@ -3136,6 +3156,25 @@ function optimizeTeam(){
   return { alloc:best.alloc, score:best.score, cands, D };
 }
 
+/* ====== 準伝説・幻はチームに1匹まで ======
+   ただし ラティアス と ラティオス だけは例外で、2匹いっしょに入れられる。
+   その日のメンバー（名前の配列）を入れると、入れてよいかどうかを返す */
+function legendOk(names){
+  const 伝説 = names.filter(n => LEGENDARY.indexOf(n) >= 0);
+  if (伝説.length <= 1) return true;
+  /* 2匹のときだけ、ラティアス＋ラティオスの組み合わせなら通す */
+  if (伝説.length === 2){
+    return 伝説.every(n => LEGENDARY_PAIR.indexOf(n) >= 0)
+        && 伝説[0] !== 伝説[1];
+  }
+  return false;
+}
+
+/* この子を、いまのメンバーに足してよいか */
+function canAddLegend(names, name){
+  return legendOk(names.concat([name]));
+}
+
 /* 「何日入れるか」から、実際の日割りを作る。なべを育てる子を先に入れる */
 function buildSchedule(alloc, cands, D){
   const rem = alloc.slice();
@@ -3143,9 +3182,11 @@ function buildSchedule(alloc, cands, D){
   for (let t = 0; t < D; t++){
     const left = D - t;
     const pick = [];
+    const 名前 = () => pick.map(i => cands[i].name);
     /* 残り日数ぶんきっちり必要な子は、必ず今日入れる */
     for (let i = 0; i < rem.length; i++){
-      if (rem[i] > 0 && rem[i] >= left && pick.length < TEAM_SIZE) pick.push(i);
+      if (rem[i] > 0 && rem[i] >= left && pick.length < TEAM_SIZE
+          && canAddLegend(名前(), cands[i].name)) pick.push(i);
     }
     /* 空いた枠は「なべを育てる子」→「残り日数が多い子」の順で埋める */
     const rest = rem.map((v,i) => i)
@@ -3153,6 +3194,8 @@ function buildSchedule(alloc, cands, D){
       .sort((a,b) => (candStat(cands[b],0,0).pot - candStat(cands[a],0,0).pot) || (rem[b] - rem[a]));
     for (const i of rest){
       if (pick.length >= TEAM_SIZE) break;
+      /* 準伝説・幻は1匹まで（ラティアスとラティオスだけは2匹OK） */
+      if (!canAddLegend(名前(), cands[i].name)) continue;
       pick.push(i);
     }
     pick.forEach(i => rem[i]--);

@@ -468,6 +468,15 @@ BERRY_BURST = {
     "りゅうせいぐん (きのみバースト)": {"self": [18, 30, 37, 45, 49, 55], "other": [1, 1, 2, 3, 4, 4]},
 }
 
+# ---------------------------------------------------------------
+# 準伝説・幻。チームに1匹しか入れられない。
+#   ただし ラティアス と ラティオス だけは例外で、2匹いっしょに入れられる。
+#   （ミュウとダークライは食材の仕組みが特別なので、このツールでは扱っていない）
+# ---------------------------------------------------------------
+LEGENDARY = ["ライコウ", "エンテイ", "スイクン", "クレセリア", "ラティアス", "ラティオス"]
+# この中どうしなら2匹いっしょに入れてよい組
+LEGENDARY_PAIR = ["ラティアス", "ラティオス"]
+
 ING_KINDS = 19
 # 食材ゲットSでもらえる食材のうち、実際に料理へ使える割合。
 # ランダムに3種類もらうスキルなので、狙った料理の材料になるとは限らない。
@@ -619,6 +628,17 @@ SKILL_DOWN = ["Lax", "Naive", "Naughty", "Rash"]
 # このツールの計算には使わないが、せいかくをえらぶ画面に出すために持っている
 EXP_UP     = ["Timid", "Hasty", "Jolly", "Naive"]
 EXP_DOWN   = ["Relaxed", "Brave", "Sassy", "Quiet"]
+
+
+def check_legendary(pokemons):
+    """準伝説のリストに、データにいない名前が混じっていないか確かめる"""
+    names = set(p["n"] for p in pokemons)
+    for n in LEGENDARY:
+        if n not in names:
+            die("準伝説の一覧にある「%s」がポケモンのデータに見つかりません" % n)
+    for n in LEGENDARY_PAIR:
+        if n not in LEGENDARY:
+            die("「%s」は LEGENDARY にも入れてください" % n)
 
 
 def build_draw():
@@ -787,6 +807,8 @@ def main():
     def dump(obj):
         return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
 
+    check_legendary(pokemon)
+
     data_js = "\n".join([
         "const POKEMON = %s;" % dump(pokemon),
         "const RECIPES = %s;" % dump(recipes),
@@ -800,6 +822,8 @@ def main():
         "const INGREDIENT_DRAW = %s;" % dump(build_draw()),
         "const INGREDIENT_DRAW_VALUE = %s;" % dump(INGREDIENT_DRAW_VALUE),
         "const BERRY_BURST = %s;" % dump(BERRY_BURST),
+        "const LEGENDARY = %s;" % dump(LEGENDARY),
+        "const LEGENDARY_PAIR = %s;" % dump(LEGENDARY_PAIR),
         "const CHARGE_STRENGTH = %s;" % dump(CHARGE_STRENGTH),
         "const EXTRA_HELPFUL = %s;" % dump(EXTRA_HELPFUL),
         "const HELPER_BOOST = %s;" % dump(HELPER_BOOST),
