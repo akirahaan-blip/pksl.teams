@@ -403,7 +403,7 @@ footer a{color:var(--faint)}
   <div id="importMsg" style="margin-top:8px"></div>
   <div class="berries" id="boxInfo" style="margin-top:10px"></div>
   <p class="hint">ボックスを<b>まるごと</b>読み込んで大丈夫です。この中から一番いい組み合わせを自動でさがします。<br>
-     ※ミュウとダークライは食材の仕組みが特別なので、このツールでは扱えません。</p>
+</p>
 
   <details class="adv" id="shotBox" style="margin-top:12px">
     <summary class="pick">📸 スクリーンショットから読み取る<small>（個体値計算機を使っていない人向け）</small></summary>
@@ -1300,8 +1300,19 @@ function importCsv(){
     }
 
     const level = Math.max(1, Math.min(100, Number(c[2]) || 1));
-    const combo = comboFromIngredients(p, [c[4], c[5], c[6]], level);
-    if (combo === null){ skipped.push(name + "（食材が合いません）"); continue; }
+    /* 幻（ミュウ・ダークライ）は「AAA」ではなく、8種類から3枠が決まる。
+       CSVに書いてある食材名を、そのまま3枠として受け取る */
+    let mythPick = null, combo = "AAA";
+    if (p.myth){
+      mythPick = [c[4], c[5], c[6]].map(x => {
+        const hit = p.myth.find(y => y[0] === x);
+        return hit ? hit[0] : "";
+      });
+      if (!mythPick[0]){ skipped.push(name + "（食材が合いません）"); continue; }
+    } else {
+      combo = comboFromIngredients(p, [c[4], c[5], c[6]], level);
+      if (combo === null){ skipped.push(name + "（食材が合いません）"); continue; }
+    }
 
     /* せいかくとサブスキルは、名前のまま持っておく。
        数値に直すのは applyNatureSubs にまかせる（3つの入り口で計算を分けないこと） */
@@ -1317,7 +1328,7 @@ function importCsv(){
 
     const mon = {
       use: added.length < 5,
-      name, level, combo,
+      name, level, combo, mythPick,
       nickname: c[0],
       nature: natName, subs,
       natureSpeed: 0, subSpeed: 0,
@@ -1461,10 +1472,26 @@ function renderMons(){
             <label>レベル</label>
             <input type="number" data-f="level" value="${m.level}" min="1" max="100">
           </div>
+          ${p && p.myth ? `
+          <div style="flex:3 1 260px">
+            <label>食材（8種類から3つ）<span class="sub2">この子だけ決まり方がちがいます</span></label>
+            <div class="row">${[0,1,2].map(k => {
+              const cur = (m.mythPick && m.mythPick[k]) || "";
+              const 開く = [1, 30, 60][k];
+              const まだ = m.level < 開く;
+              return `<div style="flex:1 1 120px${まだ ? "; opacity:.55" : ""}">
+                <label>Lv.${開く}${まだ ? "（まだ）" : ""}</label>
+                <select data-myth="${k}">
+                  <option value="">（えらぶ）</option>
+                  ${p.myth.filter(x => x[k+1] > 0).map(x =>
+                    `<option value="${esc(x[0])}"${x[0]===cur?" selected":""}>${esc(x[0])} ×${x[k+1]}</option>`).join("")}
+                </select></div>`;
+            }).join("")}</div>
+          </div>` : `
           <div style="flex:0 1 100px">
             <label>食材構成</label>
             <select data-f="combo">${comboOpt(m.combo)}</select>
-          </div>
+          </div>`}
           ${isCookingUp(m.name) ? `<div style="flex:0 1 110px">
             <label>スキルLv</label>
             <select data-f="skillLevel">${pick(m.skillLevel,[1,2,3,4,5,6,7].map(v => [v,"Lv"+v]))}</select>
@@ -1554,6 +1581,16 @@ function renderMons(){
     });
 
     /* サブスキル5枠。ゲームの画面に出ている名前をそのままえらぶ */
+    /* 幻（ミュウ・ダークライ）の食材3枠 */
+    openEl.querySelectorAll("[data-myth]").forEach(sel => {
+      sel.addEventListener("change", () => {
+        const m2 = state.mons[i];
+        if (!Array.isArray(m2.mythPick)) m2.mythPick = ["", "", ""];
+        m2.mythPick[Number(sel.dataset.myth)] = sel.value;
+        renderMons(); render();
+      });
+    });
+
     openEl.querySelectorAll("[data-sub]").forEach(sel => {
       sel.addEventListener("change", () => {
         const m2 = state.mons[i];
@@ -1634,7 +1671,7 @@ function renderMade(){
   if (!m) return;
   const p = POKE_BY_NAME[m.name];
   if (!p){ el.innerHTML = m.name ? "？ その名前のポケモンが見つかりません" : ""; return; }
-  const slots = slotsOf(p, m.combo, m.level);
+  const slots = slotsOf(p, m.combo, m.level, m.mythPick);
   if (slots === null){ el.innerHTML = "？ この食材構成は選べません"; return; }
   const txt = slots.map(s => `<b>${esc(s.ing)}×${s.count}</b>`).join(" ／ ");
   const locked = m.level < 60 ? `（レベル${m.level}なので枠は${slots.length}つ）` : "";
@@ -1642,10 +1679,26 @@ function renderMade(){
 }
 
 /* 食材構成とレベルから、開放されている枠の中身を返す */
-function slotsOf(p, combo, level){
-  const idx = { "A":0, "B":1, "C":2 };
+function slotsOf(p, combo, level, mythPick){
   const open = level >= 60 ? 3 : level >= 30 ? 2 : 1;
   const out = [];
+
+  /* 幻（ミュウ・ダークライ）は「決まった3種類」ではなく、
+     8種類の中から3つの枠それぞれが決まる。枠ごとに選んだ食材名を使う */
+  if (p.myth){
+    for (let s = 0; s < open; s++){
+      const name = mythPick && mythPick[s];
+      if (!name) return null;                  /* まだ選ばれていない */
+      const ing = p.myth.find(x => x[0] === name);
+      if (!ing) return null;
+      const count = ing[s + 1];
+      if (!count) return null;
+      out.push({ ing: ing[0], count: count });
+    }
+    return out;
+  }
+
+  const idx = { "A":0, "B":1, "C":2 };
   for (let s = 0; s < open; s++){
     const which = (s === 0) ? 0 : idx[combo[s]];
     const ing = p.ings[which];
@@ -1688,7 +1741,8 @@ const MON_DEFAULT = {
   skillLevel:6, ribbon:0, helpBonus:false, berryS:false,
   shotIngs:null, shotCounts:null,
   nature:"", subs:null,
-  fav:false
+  fav:false,
+  mythPick:null      /* 幻（ミュウ・ダークライ）の食材3枠。ふつうの子は使わない */
 };
 function fillMons(arr){
   return arr.filter(m => m && typeof m === "object")
@@ -2367,7 +2421,7 @@ function gatherIngredients(){
   for (const m of team()){
     const p = POKE_BY_NAME[m.name];
     if (!p) continue;
-    const slots = slotsOf(p, m.combo, m.level);
+    const slots = slotsOf(p, m.combo, m.level, m.mythPick);
     if (slots === null) continue;
 
     const sim = simulateDay(helpInterval(p, m, helpBonusCount), heal.each[m.name] || 0, m);
@@ -2653,7 +2707,7 @@ const TEAM_SIZE = 5;
 function perDayStats(m, helpers, healPerDay){
   const p = POKE_BY_NAME[m.name];
   if (!p) return null;
-  const slots = slotsOf(p, m.combo, m.level);
+  const slots = slotsOf(p, m.combo, m.level, m.mythPick);
   if (slots === null) return null;
 
   const rate = ingRate(p, m);

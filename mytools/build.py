@@ -107,14 +107,24 @@ def build_pokemon():
         if ja is None:
             die("日本語名が見つかりません: " + en)
 
-        # 幻のポケモン（食材が特殊なもの）は、この簡易版では扱わない
+        # 幻のポケモン（ミュウ・ダークライ）は食材の決まり方が特別で、
+        # 決まった3種類ではなく「8種類の中から3枠それぞれが決まる」。
+        # そこで myth に候補を持たせ、枠ごとの個数もいっしょに書き出す。
+        myth = None
         if p.get("mythIng") is not None:
-            continue
+            myth = []
+            for x in p["mythIng"]:
+                ja_ing = ING_JA.get(x["name"])
+                if ja_ing is None:
+                    die("幻の食材の日本語名が見つかりません: " + x["name"])
+                myth.append([ja_ing, x.get("c1", 0), x.get("c2", 0), x.get("c3", 0)])
 
         # まだ食材が分かっていないポケモン（本家が仮のデータで入れているもの）は飛ばす。
         # 例: 2026-08-27 に追加されたミュウツーは食材が unknown1/2/3 になっている。
-        if any((p.get(k) or {}).get("name", "").startswith("unknown")
-               for k in ("ing1", "ing2", "ing3")):
+        # 幻は ing1〜3 が unknown になっていて、本当の食材は mythIng の方にある。
+        # そのため、幻のときはこの確認を飛ばす
+        if myth is None and any((p.get(k) or {}).get("name", "").startswith("unknown")
+                                for k in ("ing1", "ing2", "ing3")):
             skipped_unknown.append(ja)
             continue
 
@@ -126,10 +136,14 @@ def build_pokemon():
                 continue
             ja_ing = ING_JA.get(ing["name"])
             if ja_ing is None:
+                # 幻は ing1〜3 が unknown。本当の食材は myth の方にあるので気にしない
+                if myth is not None:
+                    slots.append(None)
+                    continue
                 die("食材の日本語名が見つかりません: " + ing["name"])
             slots.append([ja_ing, ing.get("c1", 0), ing.get("c2", 0), ing.get("c3", 0)])
 
-        if slots[0] is None:
+        if slots[0] is None and myth is None:
             die("食材A がありません: " + en)
 
         skill_ja = skills_ja.get(p["skill"], {}).get("name", p["skill"])
@@ -147,6 +161,9 @@ def build_pokemon():
             "ec": p["evolutionCount"],
             "ings": slots,
         })
+        if myth is not None:
+            # 幻は「8種類の中から3枠が決まる」ので、候補を別に持たせる
+            out[-1]["myth"] = myth
 
     # 同じ名前が二重に入っていないか確認
     seen = {}
